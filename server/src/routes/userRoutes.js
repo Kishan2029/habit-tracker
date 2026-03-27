@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import authenticate from '../middleware/authenticate.js';
 import { getProfile, updateProfile, uploadAvatar } from '../controllers/userController.js';
+import { changePassword } from '../controllers/authController.js';
+import { changePasswordRules } from '../validators/authValidators.js';
+import validate from '../middleware/validate.js';
 import upload from '../middleware/upload.js';
 
 const router = Router();
@@ -106,5 +109,6 @@ router.get('/profile', getProfile);
  */
 router.put('/profile', updateProfile);
 router.put('/profile/avatar', upload.single('avatar'), uploadAvatar);
+router.put('/change-password', changePasswordRules, validate, changePassword);
 
 export default router;

@@ -26,3 +26,9 @@ export const resetPassword = catchAsync(async (req, res) => {
   await authService.resetPassword(token, newPassword);
   sendSuccess(res, {}, 'Password has been reset successfully. You can now log in with your new password.');
 });
+
+export const changePassword = catchAsync(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  await authService.changePassword(req.user._id, { currentPassword, newPassword });
+  sendSuccess(res, {}, 'Password changed successfully');
+});
