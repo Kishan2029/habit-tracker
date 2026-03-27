@@ -41,19 +41,18 @@ class LogService {
       throw new AppError(`Cannot backdate more than ${MAX_BACKDATE_DAYS} days`, 400);
     }
 
-    // Check if log already exists to determine create vs update
-    const existingLog = await HabitLog.findOne({ habitId, date: logDate });
-    const isNew = !existingLog;
-
-    const log = await HabitLog.findOneAndUpdate(
+    const result = await HabitLog.findOneAndUpdate(
       { habitId, date: logDate },
       { habitId, userId, date: logDate, value, notes: notes || '' },
-      { upsert: true, new: true, runValidators: true }
+      { upsert: true, new: true, runValidators: true, includeResultMetadata: true }
     );
+
+    const isNew = !result.lastErrorObject.updatedExisting;
+    const logDoc = result.value;
 
     await this.updateStreaks(habit);
 
-    return { log, isNew };
+    return { log: logDoc, isNew };
   }
 
   async updateStreaks(habit) {
@@ -114,6 +113,10 @@ class LogService {
     const start = toUTCMidnight(startDate);
     const end = toUTCMidnight(endDate);
 
+    if (start > end) {
+      throw new AppError('Start date must be before or equal to end date', 400);
+    }
+
     const habits = await Habit.find({ userId, isArchived: false }).sort({ sortOrder: 1, createdAt: -1 });
     const logs = await HabitLog.find({
       userId,
@@ -158,9 +161,9 @@ class LogService {
           completedLogs: {
             $sum: {
               $cond: [
-                { $or: [{ $eq: ['$value', true] }, { $gte: ['$value', 1] }] },
+                { $eq: ['$value', true] },
                 1,
-                0,
+                { $cond: [{ $gte: ['$value', 1] }, 1, 0] },
               ],
             },
           },

@@ -13,7 +13,13 @@ export const createLogRules = [
     .withMessage('Date must be in YYYY-MM-DD format'),
   body('value')
     .notEmpty()
-    .withMessage('Value is required'),
+    .withMessage('Value is required')
+    .custom((value) => {
+      if (typeof value !== 'boolean' && (typeof value !== 'number' || value < 0)) {
+        throw new Error('Value must be a boolean or a non-negative number');
+      }
+      return true;
+    }),
   body('notes')
     .optional()
     .trim()

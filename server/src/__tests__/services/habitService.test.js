@@ -61,7 +61,7 @@ describe('HabitService', () => {
       cache.get.mockReturnValue(undefined);
       const habits = [{ name: 'Exercise' }];
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue(habits),
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(habits) }),
       });
 
       const result = await habitService.getAll('user1');
@@ -72,7 +72,7 @@ describe('HabitService', () => {
     it('should filter by category when provided', async () => {
       cache.get.mockReturnValue(undefined);
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue([]),
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
       });
 
       await habitService.getAll('user1', { category: 'fitness' });
@@ -86,7 +86,7 @@ describe('HabitService', () => {
     it('should include archived when requested', async () => {
       cache.get.mockReturnValue(undefined);
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue([]),
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
       });
 
       await habitService.getAll('user1', { includeArchived: true });

@@ -3,15 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// Register service worker for push notifications
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(
-      (reg) => console.log('[SW] Registered:', reg.scope),
-      (err) => console.error('[SW] Registration failed:', err)
-    );
-  });
-}
+// Service worker registration is handled by VitePWA plugin (injectManifest strategy).
+// Do NOT manually register /sw.js here to avoid duplicate SW conflicts.
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

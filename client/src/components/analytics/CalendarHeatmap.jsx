@@ -29,7 +29,7 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
       : habits.filter((h) => h.frequency.includes(dayOfWeek));
 
     const dayLogs = logs.filter((l) => {
-      const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : new Date(l.date).toISOString().split('T')[0];
+      const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
       if (logDate !== dateStr) return false;
       if (selectedHabitId) return l.habitId === selectedHabitId;
       return true;

@@ -11,7 +11,9 @@ self.addEventListener('install', (event) => {
       const urls = manifest.map((entry) =>
         typeof entry === 'string' ? entry : entry.url
       );
-      return urls.length ? cache.addAll(urls).catch(() => {}) : Promise.resolve();
+      return urls.length ? cache.addAll(urls).catch((err) => {
+        console.warn('[SW] Precache failed for some assets:', err);
+      }) : Promise.resolve();
     })
   );
 });

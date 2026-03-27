@@ -16,6 +16,13 @@ const authenticate = async (req, res, next) => {
     if (!user) {
       return next(new AppError('User belonging to this token no longer exists', 401));
     }
+    // Check if password was changed after token was issued
+    if (user.passwordChangedAt) {
+      const changedTimestamp = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      if (decoded.iat < changedTimestamp) {
+        return next(new AppError('Password recently changed. Please log in again.', 401));
+      }
+    }
     req.user = user;
     next();
   } catch (err) {

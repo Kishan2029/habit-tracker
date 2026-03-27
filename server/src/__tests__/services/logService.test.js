@@ -109,8 +109,10 @@ describe('LogService', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       Habit.findById.mockResolvedValue(mockHabit);
-      HabitLog.findOne.mockResolvedValue(null); // No existing log
-      HabitLog.findOneAndUpdate.mockResolvedValue({ habitId: 'h1', value: true });
+      HabitLog.findOneAndUpdate.mockResolvedValue({
+        value: { habitId: 'h1', value: true },
+        lastErrorObject: { updatedExisting: false },
+      });
       HabitLog.find.mockReturnValue({
         sort: jest.fn().mockResolvedValue([]),
       });
@@ -140,8 +142,10 @@ describe('LogService', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       Habit.findById.mockResolvedValue(mockHabit);
-      HabitLog.findOne.mockResolvedValue({ _id: 'log1' }); // Existing log
-      HabitLog.findOneAndUpdate.mockResolvedValue({ habitId: 'h1', value: true });
+      HabitLog.findOneAndUpdate.mockResolvedValue({
+        value: { habitId: 'h1', value: true },
+        lastErrorObject: { updatedExisting: true },
+      });
       HabitLog.find.mockReturnValue({
         sort: jest.fn().mockResolvedValue([]),
       });

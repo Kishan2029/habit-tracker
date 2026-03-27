@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getDailyLogs } from '../../api/logApi';
 import { getLocalDateString } from '../../utils/dateUtils';
 import DateNavigator from '../dashboard/DateNavigator';
@@ -35,17 +35,21 @@ export default function DailyAnalytics() {
   const [date, setDate] = useState(today);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
+    const fetchId = ++fetchIdRef.current;
     const fetchData = async () => {
       setLoading(true);
       try {
         const { data: res } = await getDailyLogs(date);
+        if (fetchId !== fetchIdRef.current) return;
         setData(res.data);
       } catch {
+        if (fetchId !== fetchIdRef.current) return;
         setData(null);
       } finally {
-        setLoading(false);
+        if (fetchId === fetchIdRef.current) setLoading(false);
       }
     };
     fetchData();

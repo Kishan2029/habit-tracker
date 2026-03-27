@@ -39,7 +39,8 @@ export default function HabitForm({ habit, onSubmit, onCancel, isLoading }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(form);
+    if (!form.name.trim()) return;
+    onSubmit({ ...form, name: form.name.trim() });
   };
 
   const updateField = (field, value) => {

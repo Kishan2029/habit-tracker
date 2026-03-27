@@ -15,7 +15,7 @@ export default function AnalyticsInsights({ habits, logs }) {
   // Best day of week
   const dayStats = Array(7).fill(null).map(() => ({ completed: 0, scheduled: 0 }));
   const uniqueDates = [...new Set(logs.map((l) => {
-    return typeof l.date === 'string' ? l.date.slice(0, 10) : new Date(l.date).toISOString().split('T')[0];
+    return typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
   }))];
 
   for (const dateStr of uniqueDates) {
@@ -25,7 +25,7 @@ export default function AnalyticsInsights({ habits, logs }) {
       if (!habit.frequency.includes(dow)) continue;
       dayStats[dow].scheduled++;
       const log = logs.find((l) => {
-        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : new Date(l.date).toISOString().split('T')[0];
+        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
         return logDate === dateStr && l.habitId === habit._id;
       });
       if (log) {
