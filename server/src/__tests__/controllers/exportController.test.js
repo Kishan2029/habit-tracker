@@ -44,6 +44,22 @@ describe('ExportController', () => {
       expect(res.send).toHaveBeenCalled();
     });
 
+    it('should throw when start or end is missing', async () => {
+      const req = { user: { _id: 'u1' }, query: { end: '2025-01-31' } };
+      await exportExcel(req, res, next);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+
+    it('should throw when start is after end', async () => {
+      const req = { user: { _id: 'u1' }, query: { start: '2025-01-31', end: '2025-01-01' } };
+      await exportExcel(req, res, next);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+
     it('should pass errors to next', async () => {
       const error = new Error('Export failed');
       exportService.generateExcel.mockRejectedValue(error);
@@ -61,6 +77,22 @@ describe('ExportController', () => {
   });
 
   describe('exportPDF', () => {
+    it('should throw when start or end is missing', async () => {
+      const req = { user: { _id: 'u1' }, query: { start: '2025-01-01' } };
+      await exportPDF(req, res, next);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+
+    it('should throw when start is after end', async () => {
+      const req = { user: { _id: 'u1' }, query: { start: '2025-12-31', end: '2025-01-01' } };
+      await exportPDF(req, res, next);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+
     it('should generate and send PDF buffer', async () => {
       const buffer = Buffer.from('pdf-content');
       exportService.generatePDF.mockResolvedValue(buffer);

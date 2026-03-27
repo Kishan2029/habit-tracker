@@ -22,7 +22,7 @@ export default function ExportButton() {
   const [loading, setLoading] = useState('');
 
   const handleExport = async (type) => {
-    if (start > end) {
+    if (new Date(start) > new Date(end)) {
       toast.error('Start date must be before end date');
       return;
     }

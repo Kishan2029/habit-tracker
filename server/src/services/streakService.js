@@ -52,8 +52,14 @@ class StreakService {
     }
 
     // Backward pass for current streak
+    // Skip today if it hasn't been completed yet (the day isn't over)
     let currentStreak = 0;
-    for (let i = scheduledDates.length - 1; i >= 0; i--) {
+    let startIdx = scheduledDates.length - 1;
+    const todayStr = toDateString(today);
+    if (startIdx >= 0 && scheduledDates[startIdx] === todayStr && !completedSet.has(todayStr)) {
+      startIdx--;
+    }
+    for (let i = startIdx; i >= 0; i--) {
       if (completedSet.has(scheduledDates[i])) {
         currentStreak++;
       } else {

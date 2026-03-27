@@ -5,9 +5,10 @@ import pushService from './pushService.js';
 
 class WeeklySummaryService {
   async generateSummary(userId) {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7);
+    const now = new Date();
+    const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - 7);
 
     const habits = await Habit.find({ userId, isArchived: false });
     if (habits.length === 0) return null;
@@ -23,8 +24,8 @@ class WeeklySummaryService {
     for (const habit of habits) {
       for (let d = 0; d < 7; d++) {
         const date = new Date(startDate);
-        date.setDate(date.getDate() + d);
-        const dayOfWeek = date.getDay();
+        date.setUTCDate(date.getUTCDate() + d);
+        const dayOfWeek = date.getUTCDay();
 
         if (habit.frequency.includes(dayOfWeek)) {
           totalExpected++;

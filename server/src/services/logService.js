@@ -77,7 +77,7 @@ class LogService {
     const habits = await Habit.find({
       userId,
       isArchived: false,
-      frequency: dayOfWeek,
+      frequency: { $in: [dayOfWeek] },
     }).sort({ sortOrder: 1, createdAt: -1 });
 
     const logs = await HabitLog.find({ userId, date });

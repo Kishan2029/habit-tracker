@@ -26,6 +26,8 @@ export default function MonthlyAnalytics() {
       try {
         const { data: res } = await getMonthlyLogs(month, year);
         setData(res.data);
+        // Reset habit selection when month changes so it picks the first available habit
+        setSelectedHabit('');
       } catch {
         setData(null);
       } finally {
