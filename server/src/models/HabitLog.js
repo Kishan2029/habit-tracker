@@ -29,7 +29,7 @@ const habitLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-habitLogSchema.index({ habitId: 1, date: 1 }, { unique: true });
+habitLogSchema.index({ habitId: 1, userId: 1, date: 1 }, { unique: true });
 habitLogSchema.index({ userId: 1, date: 1 });
 habitLogSchema.index({ habitId: 1, date: 1, value: 1 });
 

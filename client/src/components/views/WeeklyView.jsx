@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
+import SharedBadge from '../ui/SharedBadge';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import EmptyState from '../ui/EmptyState';
@@ -48,6 +49,11 @@ export default function WeeklyView() {
   }, [fetchData]);
 
   const handleToggle = async (habitId, dateStr, currentValue, habit, delta = 1) => {
+    // Block viewers from logging shared habits
+    if (habit.isShared && habit.myRole === 'viewer') {
+      toast.error('Viewers cannot log shared habits');
+      return;
+    }
     let newValue;
     if (habit.type === 'boolean') {
       newValue = !currentValue;
@@ -129,7 +135,10 @@ export default function WeeklyView() {
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{habit.icon}</span>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white text-sm">{habit.name}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-900 dark:text-white text-sm">{habit.name}</span>
+                          {habit.isShared && <SharedBadge sharedBy={habit.sharedBy} />}
+                        </div>
                         <span className="text-xs" style={{ color: cat.color }}>{cat.icon} {cat.label}</span>
                       </div>
                     </div>

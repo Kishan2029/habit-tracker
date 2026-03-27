@@ -9,6 +9,7 @@ import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { triggerConfetti, triggerMiniConfetti } from '../ui/ConfettiEffect';
+import SharedBadge from '../ui/SharedBadge';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDateString } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -94,7 +95,7 @@ export default function TodayView() {
       <DailyProgressBar completed={data.completed} total={data.total} />
 
       <div className="space-y-3">
-        {data.habits.map(({ habit, log, isCompleted }) => (
+        {data.habits.map(({ habit, log, isCompleted, isShared, sharedBy, myRole }) => (
           <Card key={habit._id} className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -105,19 +106,24 @@ export default function TodayView() {
                   {habit.icon}
                 </div>
                 <div className="min-w-0">
-                  <h3 className={`font-medium truncate ${
-                    isCompleted
-                      ? 'text-green-600 dark:text-green-400 line-through'
-                      : 'text-gray-900 dark:text-white'
-                  }`}>
-                    {habit.name}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className={`font-medium truncate ${
+                      isCompleted
+                        ? 'text-green-600 dark:text-green-400 line-through'
+                        : 'text-gray-900 dark:text-white'
+                    }`}>
+                      {habit.name}
+                    </h3>
+                    {isShared && <SharedBadge sharedBy={sharedBy} />}
+                  </div>
                   <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
                 </div>
               </div>
 
               <div className="shrink-0 ml-3">
-                {habit.type === 'boolean' ? (
+                {isShared && myRole === 'viewer' ? (
+                  <span className="text-xs text-gray-400 dark:text-gray-500 italic">View only</span>
+                ) : habit.type === 'boolean' ? (
                   <BooleanToggle
                     isCompleted={isCompleted}
                     color={habit.color}

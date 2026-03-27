@@ -13,6 +13,8 @@ import HabitList from './components/habits/HabitList';
 import AnalyticsPage from './components/analytics/AnalyticsPage';
 import SettingsPage from './components/settings/SettingsPage';
 import WeeklyView from './components/views/WeeklyView';
+import SharedHabitsPage from './components/shared/SharedHabitsPage';
+import JoinSharedHabit from './components/shared/JoinSharedHabit';
 import NotFoundPage from './components/ui/NotFoundPage';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
@@ -28,11 +30,13 @@ export default function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route element={<ProtectedRoute />}>
+                <Route path="/join/:inviteCode" element={<JoinSharedHabit />} />
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Navigate to="/today" replace />} />
                   <Route path="/today" element={<TodayView />} />
                   <Route path="/weekly" element={<WeeklyView />} />
                   <Route path="/habits" element={<HabitList />} />
+                  <Route path="/shared" element={<SharedHabitsPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>

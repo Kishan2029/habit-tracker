@@ -4,6 +4,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import SortableHabitCard from './SortableHabitCard';
 import HabitForm from './HabitForm';
+import ShareHabitModal from './ShareHabitModal';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
@@ -17,6 +18,7 @@ export default function HabitList() {
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [sharingHabit, setSharingHabit] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
 
@@ -181,6 +183,7 @@ export default function HabitList() {
                   onEdit={(h) => setEditingHabit(h)}
                   onArchive={handleArchive}
                   onDelete={handleDelete}
+                  onShare={(h) => setSharingHabit(h)}
                 />
               ))}
             </div>
@@ -214,6 +217,13 @@ export default function HabitList() {
           />
         )}
       </Modal>
+
+      {sharingHabit && (
+        <ShareHabitModal
+          habit={sharingHabit}
+          onClose={() => setSharingHabit(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,84 @@
+import catchAsync from '../utils/catchAsync.js';
+import { sendSuccess } from '../utils/responseFormatter.js';
+import sharedHabitService from '../services/sharedHabitService.js';
+
+export const shareHabit = catchAsync(async (req, res) => {
+  const shared = await sharedHabitService.shareHabit(req.user._id, req.body.habitId);
+  sendSuccess(res, { shared }, 'Habit shared', 201);
+});
+
+export const joinByInviteCode = catchAsync(async (req, res) => {
+  const shared = await sharedHabitService.joinByInviteCode(req.user._id, req.body.inviteCode);
+  sendSuccess(res, { shared }, 'Joined shared habit');
+});
+
+export const inviteMember = catchAsync(async (req, res) => {
+  const { habitId, email, role } = req.body;
+  const shared = await sharedHabitService.inviteMember(req.user._id, habitId, email, role);
+  sendSuccess(res, { shared }, 'Invite sent');
+});
+
+export const respondToInvite = catchAsync(async (req, res) => {
+  const { habitId, accept } = req.body;
+  const shared = await sharedHabitService.respondToInvite(req.user._id, habitId, accept);
+  const message = accept ? 'Invite accepted' : 'Invite declined';
+  sendSuccess(res, { shared }, message);
+});
+
+export const removeMember = catchAsync(async (req, res) => {
+  const shared = await sharedHabitService.removeMember(
+    req.user._id,
+    req.params.habitId,
+    req.params.userId
+  );
+  sendSuccess(res, { shared }, 'Member removed');
+});
+
+export const leaveHabit = catchAsync(async (req, res) => {
+  const result = await sharedHabitService.leaveSharedHabit(req.user._id, req.params.habitId);
+  sendSuccess(res, result, 'Left shared habit');
+});
+
+export const updateMemberRole = catchAsync(async (req, res) => {
+  const shared = await sharedHabitService.updateMemberRole(
+    req.user._id,
+    req.params.habitId,
+    req.params.userId,
+    req.body.role
+  );
+  sendSuccess(res, { shared }, 'Role updated');
+});
+
+export const transferOwnership = catchAsync(async (req, res) => {
+  const shared = await sharedHabitService.transferOwnership(
+    req.user._id,
+    req.params.habitId,
+    req.body.newOwnerId
+  );
+  sendSuccess(res, { shared }, 'Ownership transferred');
+});
+
+export const getSharedWithMe = catchAsync(async (req, res) => {
+  const sharedHabits = await sharedHabitService.getSharedHabitsForUser(req.user._id);
+  sendSuccess(res, { sharedHabits }, 'Shared habits retrieved');
+});
+
+export const getPendingInvites = catchAsync(async (req, res) => {
+  const invites = await sharedHabitService.getPendingInvites(req.user._id);
+  sendSuccess(res, { invites }, 'Pending invites retrieved');
+});
+
+export const getSharingInfo = catchAsync(async (req, res) => {
+  const result = await sharedHabitService.getSharingInfo(req.user._id, req.params.habitId);
+  sendSuccess(res, result, 'Sharing info retrieved');
+});
+
+export const regenerateInviteCode = catchAsync(async (req, res) => {
+  const shared = await sharedHabitService.regenerateInviteCode(req.user._id, req.params.habitId);
+  sendSuccess(res, { shared }, 'Invite code regenerated');
+});
+
+export const unshareHabit = catchAsync(async (req, res) => {
+  const result = await sharedHabitService.unshareHabit(req.user._id, req.params.habitId);
+  sendSuccess(res, result, 'Habit unshared');
+});
