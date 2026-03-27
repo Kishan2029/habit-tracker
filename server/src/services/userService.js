@@ -33,6 +33,10 @@ class UserService {
   }
 
   async uploadAvatar(userId, fileBuffer) {
+    if (!cloudinary.config().cloud_name) {
+      throw new AppError('Avatar upload is not configured on this server', 503);
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
