@@ -76,8 +76,8 @@ export default function AnalyticsInsights({ habits, logs }) {
     <Card className="p-4">
       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Insights</h4>
       <div className="space-y-3">
-        {insights.map((insight, i) => (
-          <div key={i} className="flex items-start gap-3">
+        {insights.map((insight) => (
+          <div key={insight.label} className="flex items-start gap-3">
             <span className="text-lg shrink-0">{insight.icon}</span>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">{insight.label}</p>

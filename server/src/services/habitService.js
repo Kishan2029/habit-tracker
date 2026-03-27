@@ -84,8 +84,9 @@ class HabitService {
 
   async delete(habitId, userId) {
     const habit = await this.getById(habitId, userId);
-    await HabitLog.deleteMany({ habitId: habit._id });
+    // Delete habit first — if this fails, logs remain intact
     await Habit.findByIdAndDelete(habit._id);
+    await HabitLog.deleteMany({ habitId: habit._id });
     this._invalidateCache(userId);
     return { message: 'Habit and associated logs deleted' };
   }

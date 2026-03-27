@@ -43,7 +43,8 @@ export default function MonthlyGridView() {
     } finally {
       setLoading(false);
     }
-  }, [start, end]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end, selectedHabit]);
 
   useEffect(() => {
     fetchData();

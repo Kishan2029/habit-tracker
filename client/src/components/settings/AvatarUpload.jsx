@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { uploadAvatar } from '../../api/userApi';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -8,6 +8,13 @@ export default function AvatarUpload() {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
   const fileRef = useRef();
+
+  // Revoke blob URL on cleanup to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   const initials = user?.name
     ?.split(' ')

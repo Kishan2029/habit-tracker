@@ -104,6 +104,20 @@ describe('StreakService', () => {
       expect(result.currentStreak).toBe(0);
     });
 
+    it('should skip today in current streak if not completed yet', () => {
+      const dates = [
+        toDateString(addDays(today, -2)),
+        toDateString(addDays(today, -1)),
+      ];
+      const logs = makeLogs(dates);
+      const createdAt = addDays(today, -5);
+
+      const result = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      // Today is scheduled but not completed — should be skipped; streak is 2 (days -2, -1)
+      expect(result.currentStreak).toBe(2);
+      expect(result.longestStreak).toBe(2);
+    });
+
     it('should return 0/0 when no scheduled dates exist', () => {
       // Frequency is empty
       const createdAt = addDays(today, -5);

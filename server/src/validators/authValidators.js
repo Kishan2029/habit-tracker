@@ -48,7 +48,9 @@ export const resetPasswordRules = [
     .notEmpty()
     .withMessage('Reset token is required')
     .isHexadecimal()
-    .withMessage('Invalid reset token format'),
+    .withMessage('Invalid reset token format')
+    .isLength({ min: 32 })
+    .withMessage('Reset token is too short'),
   body('newPassword')
     .notEmpty()
     .withMessage('New password is required')

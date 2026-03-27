@@ -42,7 +42,7 @@ class ExportService {
     const dates = [];
     const s = new Date(startDate + 'T00:00:00Z');
     const e = new Date(endDate + 'T00:00:00Z');
-    for (let d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+    for (let d = new Date(s); d <= e; d = new Date(d.getTime() + 86400000)) {
       dates.push(d.toISOString().split('T')[0]);
     }
 
@@ -322,7 +322,7 @@ class ExportService {
 
       drawStatBox(marginL, statsY, 'Total Habits', `${habits.length}`, '#6366F1');
       drawStatBox(marginL + statsBoxW + 20, statsY, 'Overall Completion', `${overallRate}%`, overallRate >= 75 ? '#16A34A' : overallRate >= 50 ? '#D97706' : '#DC2626');
-      drawStatBox(marginL, statsY + statsBoxH + 15, 'Best Habit', bestHabit ? bestHabit.habit.name.substring(0, 20) : '-', '#6366F1');
+      drawStatBox(marginL, statsY + statsBoxH + 15, 'Best Habit', bestHabit ? (bestHabit.habit.name || '').substring(0, 20) : '-', '#6366F1');
       drawStatBox(marginL + statsBoxW + 20, statsY + statsBoxH + 15, 'Best Day', `${DAY_NAMES[bestDayIdx]} (${Math.round(bestDayRate * 100)}%)`, '#6366F1');
 
       doc.y = statsY + 2 * (statsBoxH + 15) + 20;

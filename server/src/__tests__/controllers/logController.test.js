@@ -83,6 +83,14 @@ describe('LogController', () => {
   });
 
   describe('getMonthlyLogs', () => {
+    it('should throw when month or year is not a valid number', async () => {
+      const req = { user: { _id: 'u1' }, query: { month: 'abc', year: '2025' } };
+      await getMonthlyLogs(req, res, next);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+
     it('should parse month and year from query', async () => {
       logService.getMonthlyLogs.mockResolvedValue({ month: 6, year: 2025 });
 
@@ -94,6 +102,14 @@ describe('LogController', () => {
   });
 
   describe('getYearlyLogs', () => {
+    it('should throw when year is not a valid number', async () => {
+      const req = { user: { _id: 'u1' }, query: { year: 'invalid' } };
+      await getYearlyLogs(req, res, next);
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+
     it('should parse year from query', async () => {
       logService.getYearlyLogs.mockResolvedValue({ year: 2025 });
 
