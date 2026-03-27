@@ -1,0 +1,66 @@
+export default {
+  testEnvironment: 'node',
+  transform: {},
+  testMatch: ['**/__tests__/**/*.test.js'],
+  moduleFileExtensions: ['js', 'json'],
+  collectCoverageFrom: [
+    'src/**/*.js',
+    '!src/index.js',
+    '!src/config/db.js',
+    '!src/config/swagger.js',
+    '!src/routes/**',
+    '!src/validators/**',
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'text-summary', 'html', 'lcov', 'json-summary'],
+  coverageThreshold: {
+    './src/utils/': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/controllers/': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/middleware/': {
+      branches: 90,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/services/authService.js': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/services/cacheService.js': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/services/habitService.js': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/services/streakService.js': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+    './src/services/userService.js': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+  },
+};

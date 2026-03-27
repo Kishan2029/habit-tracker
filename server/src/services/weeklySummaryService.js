@@ -1,0 +1,77 @@
+import HabitLog from '../models/HabitLog.js';
+import Habit from '../models/Habit.js';
+import PushSubscription from '../models/PushSubscription.js';
+import pushService from './pushService.js';
+
+class WeeklySummaryService {
+  async generateSummary(userId) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+
+    const habits = await Habit.find({ userId, isArchived: false });
+    if (habits.length === 0) return null;
+
+    const logs = await HabitLog.find({
+      userId,
+      date: { $gte: startDate, $lte: endDate },
+    });
+
+    let completedCount = 0;
+    let totalExpected = 0;
+
+    for (const habit of habits) {
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + d);
+        const dayOfWeek = date.getDay();
+
+        if (habit.frequency.includes(dayOfWeek)) {
+          totalExpected++;
+          const dateStr = date.toISOString().split('T')[0];
+          const log = logs.find(
+            (l) => l.habitId.toString() === habit._id.toString() && l.date.toISOString().split('T')[0] === dateStr
+          );
+          if (log) {
+            const isComplete = typeof log.value === 'boolean' ? log.value : log.value >= habit.target;
+            if (isComplete) completedCount++;
+          }
+        }
+      }
+    }
+
+    const rate = totalExpected > 0 ? Math.round((completedCount / totalExpected) * 100) : 0;
+    const bestHabit = habits.reduce((best, h) => (h.currentStreak > (best?.currentStreak || 0) ? h : best), null);
+
+    return {
+      totalHabits: habits.length,
+      completedCount,
+      totalExpected,
+      completionRate: rate,
+      bestHabit: bestHabit?.name || 'N/A',
+      bestStreak: bestHabit?.currentStreak || 0,
+    };
+  }
+
+  async sendWeeklySummaries() {
+    const subs = await PushSubscription.find();
+    let sent = 0;
+
+    for (const sub of subs) {
+      const summary = await this.generateSummary(sub.userId);
+      if (!summary) continue;
+
+      await pushService.sendNotification(sub.userId, {
+        title: `Weekly Summary: ${summary.completionRate}% completion`,
+        body: `${summary.completedCount}/${summary.totalExpected} habits done. Best streak: ${summary.bestHabit} (${summary.bestStreak}d)`,
+        icon: '/pwa-192x192.png',
+        tag: 'weekly-summary',
+      });
+      sent++;
+    }
+
+    console.log(`[Weekly Summary] Sent ${sent} notifications`);
+  }
+}
+
+export default new WeeklySummaryService();

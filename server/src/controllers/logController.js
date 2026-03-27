@@ -1,0 +1,31 @@
+import catchAsync from '../utils/catchAsync.js';
+import { sendSuccess } from '../utils/responseFormatter.js';
+import logService from '../services/logService.js';
+
+export const createOrUpdateLog = catchAsync(async (req, res) => {
+  const { log, isNew } = await logService.createOrUpdate(req.user._id, req.body);
+  sendSuccess(res, { log }, isNew ? 'Log created' : 'Log updated', isNew ? 201 : 200);
+});
+
+export const getDailyLogs = catchAsync(async (req, res) => {
+  const data = await logService.getDailyLogs(req.user._id, req.query.date);
+  sendSuccess(res, data, 'Daily logs retrieved');
+});
+
+export const getMonthlyLogs = catchAsync(async (req, res) => {
+  const month = parseInt(req.query.month, 10);
+  const year = parseInt(req.query.year, 10);
+  const data = await logService.getMonthlyLogs(req.user._id, month, year);
+  sendSuccess(res, data, 'Monthly logs retrieved');
+});
+
+export const getYearlyLogs = catchAsync(async (req, res) => {
+  const year = parseInt(req.query.year, 10);
+  const data = await logService.getYearlyLogs(req.user._id, year);
+  sendSuccess(res, data, 'Yearly logs retrieved');
+});
+
+export const getRangeLogs = catchAsync(async (req, res) => {
+  const data = await logService.getRangeLogs(req.user._id, req.query.start, req.query.end);
+  sendSuccess(res, data, 'Range logs retrieved');
+});
