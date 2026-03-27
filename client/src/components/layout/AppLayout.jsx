@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import FeedbackButton from '../feedback/FeedbackButton';
 
 export default function AppLayout() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -18,6 +19,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <FeedbackButton />
     </div>
   );
 }

@@ -26,6 +26,7 @@ export default {
     pass: process.env.SMTP_PASS,
   },
   emailFrom: process.env.EMAIL_FROM || 'Habit Tracker <noreply@habit-tracker.com>',
+  adminEmail: process.env.ADMIN_EMAIL || '',
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
     apiKey: process.env.CLOUDINARY_API_KEY,

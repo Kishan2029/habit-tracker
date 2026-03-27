@@ -7,6 +7,7 @@ import logRoutes from './logRoutes.js';
 import exportRoutes from './exportRoutes.js';
 import pushRoutes from './pushRoutes.js';
 import sharedHabitRoutes from './sharedHabitRoutes.js';
+import feedbackRoutes from './feedbackRoutes.js';
 
 const router = Router();
 
@@ -29,5 +30,6 @@ router.use('/logs', logRoutes);
 router.use('/export', exportRoutes);
 router.use('/push', pushRoutes);
 router.use('/shared', sharedHabitRoutes);
+router.use('/feedback', feedbackRoutes);
 
 export default router;
