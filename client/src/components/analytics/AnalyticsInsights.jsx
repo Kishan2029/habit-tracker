@@ -1,4 +1,5 @@
 import Card from '../ui/Card';
+import { parseLocalDate } from '../../utils/dateUtils';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -19,8 +20,8 @@ export default function AnalyticsInsights({ habits, logs }) {
   }))];
 
   for (const dateStr of uniqueDates) {
-    const d = new Date(dateStr + 'T00:00:00Z');
-    const dow = d.getUTCDay();
+    const d = parseLocalDate(dateStr);
+    const dow = d.getDay();
     for (const habit of habits) {
       if (!habit.frequency.includes(dow)) continue;
       dayStats[dow].scheduled++;

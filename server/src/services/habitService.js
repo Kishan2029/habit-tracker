@@ -66,6 +66,7 @@ class HabitService {
 
   async update(habitId, userId, data) {
     const habit = await this.getById(habitId, userId, { allowSharedAdmin: true });
+    const ownerId = habit.userId.toString();
 
     const allowedFields = ['name', 'type', 'unit', 'target', 'color', 'icon', 'frequency', 'sortOrder', 'category'];
     for (const field of allowedFields) {
@@ -76,9 +77,9 @@ class HabitService {
 
     await habit.save();
     this._invalidateCache(userId);
-    // If a shared admin edited this, also invalidate the actual owner's cache
-    if (habit.userId.toString() !== userId.toString()) {
-      this._invalidateCache(habit.userId.toString());
+    // If a shared admin updated, also invalidate the owner's cache
+    if (ownerId !== userId.toString()) {
+      this._invalidateCache(ownerId);
     }
     return habit;
   }
@@ -105,6 +106,10 @@ class HabitService {
 
   async delete(habitId, userId) {
     const habit = await this.getById(habitId, userId);
+    const activeShare = await SharedHabit.findOne({ habitId: habit._id, isActive: true });
+    if (activeShare) {
+      throw new AppError('Unshare the habit before deleting it', 400);
+    }
     await HabitLog.deleteMany({ habitId: habit._id });
     await SharedHabit.findOneAndDelete({ habitId: habit._id });
     await Habit.findByIdAndDelete(habit._id);
