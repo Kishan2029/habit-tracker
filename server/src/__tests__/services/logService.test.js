@@ -7,6 +7,13 @@ jest.unstable_mockModule('../../models/Habit.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../models/User.js', () => ({
+  default: {
+    find: jest.fn(),
+    findById: jest.fn(),
+  },
+}));
+
 jest.unstable_mockModule('../../models/HabitLog.js', () => ({
   default: {
     findOne: jest.fn(),
@@ -23,16 +30,33 @@ jest.unstable_mockModule('../../services/streakService.js', () => ({
 }));
 
 jest.unstable_mockModule('../../config/constants.js', () => ({
+  ROLES: {
+    USER: 'user',
+    PREMIUM: 'premium',
+    ADMIN: 'admin',
+  },
   MAX_BACKDATE_DAYS: 7,
+}));
+
+jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
+  default: {
+    getUserRoleForHabit: jest.fn(),
+    getSharedHabitIdsForUser: jest.fn(),
+    getSharingInfo: jest.fn(),
+  },
 }));
 
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: HabitLog } = await import('../../models/HabitLog.js');
+const { default: User } = await import('../../models/User.js');
+const { default: sharedHabitService } = await import('../../services/sharedHabitService.js');
 const { default: logService } = await import('../../services/logService.js');
 
 describe('LogService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
+    sharedHabitService.getSharedHabitIdsForUser.mockResolvedValue([]);
   });
 
   describe('createOrUpdate', () => {
@@ -186,6 +210,72 @@ describe('LogService', () => {
       expect(result.completed).toBe(1);
     });
 
+    it('should include archived habits when the user logged them on that date', async () => {
+      HabitLog.find.mockResolvedValue([
+        { habitId: { toString: () => 'h-archived' }, value: true },
+      ]);
+      Habit.find.mockReturnValue({
+        sort: jest.fn().mockResolvedValue([
+          {
+            _id: 'h-archived',
+            target: 1,
+            toObject: jest.fn().mockReturnValue({ _id: 'h-archived', isArchived: true, target: 1 }),
+          },
+        ]),
+      });
+
+      const result = await logService.getDailyLogs('user1', '2025-06-15');
+
+      expect(Habit.find).toHaveBeenCalledWith({
+        userId: 'user1',
+        $or: [
+          { isArchived: false, frequency: { $in: [0] } },
+          { _id: { $in: ['h-archived'] } },
+        ],
+      });
+      expect(result.habits).toHaveLength(1);
+      expect(result.habits[0].habit.isArchived).toBe(true);
+    });
+
+    it('should show personal streaks for shared habits', async () => {
+      sharedHabitService.getSharedHabitIdsForUser.mockResolvedValue([
+        { habitId: 'sh1', ownerId: 'owner1', role: 'member' },
+      ]);
+      Habit.find
+        .mockReturnValueOnce({
+          sort: jest.fn().mockResolvedValue([]),
+        })
+        .mockReturnValueOnce({
+          sort: jest.fn().mockResolvedValue([
+            {
+              _id: 'sh1',
+              target: 1,
+              frequency: [0],
+              createdAt: new Date('2024-01-01'),
+              currentStreak: 99,
+              longestStreak: 99,
+              toObject: jest.fn().mockReturnValue({
+                _id: 'sh1',
+                target: 1,
+                currentStreak: 99,
+                longestStreak: 99,
+              }),
+            },
+          ]),
+        });
+      User.find.mockResolvedValue([{ _id: { toString: () => 'owner1' }, name: 'Owner' }]);
+      HabitLog.find
+        .mockResolvedValueOnce([{ habitId: { toString: () => 'sh1' }, value: true }])
+        .mockReturnValueOnce({
+          sort: jest.fn().mockResolvedValue([{ habitId: { toString: () => 'sh1' }, value: true }]),
+        });
+
+      const result = await logService.getDailyLogs('user1', '2025-06-15');
+
+      expect(result.habits[0].habit.currentStreak).toBe(3);
+      expect(result.habits[0].habit.longestStreak).toBe(5);
+    });
+
     it('should mark habit as not completed when no log exists', async () => {
       const habits = [
         {
@@ -208,9 +298,9 @@ describe('LogService', () => {
   describe('getRangeLogs', () => {
     it('should return habits and logs for date range', async () => {
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue([{ name: 'Exercise' }]),
+        sort: jest.fn().mockResolvedValue([{ _id: 'h1', name: 'Exercise', toObject: () => ({ _id: 'h1', name: 'Exercise' }) }]),
       });
-      HabitLog.find.mockResolvedValue([{ value: true }]);
+      HabitLog.find.mockResolvedValue([{ habitId: { toString: () => 'h1' }, value: true }]);
 
       const result = await logService.getRangeLogs('user1', '2025-01-01', '2025-01-31');
 
@@ -223,8 +313,8 @@ describe('LogService', () => {
 
   describe('getMonthlyLogs', () => {
     it('should return habits and logs for a month', async () => {
-      Habit.find.mockResolvedValue([{ name: 'Read' }]);
-      HabitLog.find.mockResolvedValue([{ value: true }]);
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'Read', toObject: () => ({ _id: 'h1', name: 'Read' }) }]);
+      HabitLog.find.mockResolvedValue([{ habitId: { toString: () => 'h1' }, value: true }]);
 
       const result = await logService.getMonthlyLogs('user1', 6, 2025);
 
@@ -236,11 +326,14 @@ describe('LogService', () => {
 
   describe('getYearlyLogs', () => {
     it('should return habits, monthly stats, and logs', async () => {
-      Habit.find.mockResolvedValue([{ name: 'Exercise' }]);
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'Exercise' }]);
       HabitLog.aggregate.mockResolvedValue([
         { _id: { month: 1 }, totalLogs: 30, completedLogs: 25 },
       ]);
-      HabitLog.find.mockResolvedValue([{ value: true }]);
+      HabitLog.find.mockResolvedValue([
+        { habitId: 'h1', value: true },
+        { habitId: 'h2', value: true },
+      ]);
 
       const result = await logService.getYearlyLogs(
         '507f1f77bcf86cd799439011', // valid ObjectId string
@@ -250,6 +343,7 @@ describe('LogService', () => {
       expect(result.year).toBe(2025);
       expect(result.monthlyStats).toHaveLength(1);
       expect(result.monthlyStats[0].totalLogs).toBe(30);
+      expect(result.logs).toHaveLength(1);
     });
   });
 });

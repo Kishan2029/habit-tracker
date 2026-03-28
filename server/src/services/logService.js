@@ -18,6 +18,54 @@ import {
 import { MAX_BACKDATE_DAYS } from '../config/constants.js';
 
 class LogService {
+  _getLoggedHabitIds(logs) {
+    return [...new Set(logs.map((log) => log.habitId.toString()))];
+  }
+
+  _serializeHabit(habit, streakOverride = null) {
+    const habitData = typeof habit.toObject === 'function' ? habit.toObject() : { ...habit };
+
+    if (streakOverride) {
+      habitData.currentStreak = streakOverride.currentStreak;
+      habitData.longestStreak = streakOverride.longestStreak;
+    }
+
+    return habitData;
+  }
+
+  async _buildSharedStreakMap(userId, sharedHabits) {
+    if (sharedHabits.length === 0) return new Map();
+
+    const habitIds = sharedHabits.map((habit) => habit._id);
+    const logs = await HabitLog.find({
+      userId,
+      habitId: { $in: habitIds },
+    }).sort({ habitId: 1, date: 1 });
+
+    const logsByHabit = new Map();
+    for (const log of logs) {
+      const key = log.habitId.toString();
+      if (!logsByHabit.has(key)) {
+        logsByHabit.set(key, []);
+      }
+      logsByHabit.get(key).push(log);
+    }
+
+    const streakMap = new Map();
+    for (const habit of sharedHabits) {
+      const habitLogs = logsByHabit.get(habit._id.toString()) || [];
+      const streaks = streakService.calculateStreaks(
+        habitLogs,
+        habit.frequency,
+        habit.target,
+        habit.createdAt
+      );
+      streakMap.set(habit._id.toString(), streaks);
+    }
+
+    return streakMap;
+  }
+
   async createOrUpdate(userId, { habitId, date, value, notes }) {
     if (!habitId || !date) {
       throw new AppError('habitId and date are required', 400);
@@ -94,12 +142,16 @@ class LogService {
   async getDailyLogs(userId, dateString) {
     const date = toUTCMidnight(dateString);
     const dayOfWeek = getDayOfWeek(date);
+    const logs = await HabitLog.find({ userId, date });
+    const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     // Fetch user's own habits
     const ownHabits = await Habit.find({
       userId,
-      isArchived: false,
-      frequency: { $in: [dayOfWeek] },
+      $or: [
+        { isArchived: false, frequency: { $in: [dayOfWeek] } },
+        { _id: { $in: loggedHabitIds } },
+      ],
     }).sort({ sortOrder: 1, createdAt: -1 });
 
     // Fetch shared habits the user is part of
@@ -110,10 +162,14 @@ class LogService {
     if (sharedHabitIds.length > 0) {
       sharedHabits = await Habit.find({
         _id: { $in: sharedHabitIds },
-        isArchived: false,
-        frequency: { $in: [dayOfWeek] },
+        $or: [
+          { isArchived: false, frequency: { $in: [dayOfWeek] } },
+          { _id: { $in: loggedHabitIds } },
+        ],
       }).sort({ createdAt: -1 });
     }
+
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
 
     // Fetch owner names for shared habits
     const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
@@ -127,8 +183,6 @@ class LogService {
       sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
     );
 
-    // Fetch user's logs for this date (covers both own and shared habits)
-    const logs = await HabitLog.find({ userId, date });
     const logMap = new Map();
     for (const log of logs) {
       logMap.set(log.habitId.toString(), log);
@@ -138,7 +192,7 @@ class LogService {
     const ownResult = ownHabits.map((habit) => {
       const log = logMap.get(habit._id.toString());
       return {
-        habit: habit.toObject(),
+        habit: this._serializeHabit(habit),
         log: log || null,
         isCompleted: log
           ? typeof log.value === 'boolean'
@@ -154,7 +208,7 @@ class LogService {
       const log = logMap.get(habit._id.toString());
       const info = roleMap.get(habit._id.toString());
       return {
-        habit: habit.toObject(),
+        habit: this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString())),
         log: log || null,
         isCompleted: log
           ? typeof log.value === 'boolean'
@@ -186,8 +240,17 @@ class LogService {
       throw new AppError('Start date must be before or equal to end date', 400);
     }
 
+    const logs = await HabitLog.find({
+      userId,
+      date: { $gte: start, $lte: end },
+    });
+    const loggedHabitIds = this._getLoggedHabitIds(logs);
+
     // Own habits
-    const ownHabits = await Habit.find({ userId, isArchived: false }).sort({ sortOrder: 1, createdAt: -1 });
+    const ownHabits = await Habit.find({
+      userId,
+      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
+    }).sort({ sortOrder: 1, createdAt: -1 });
 
     // Shared habits
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
@@ -196,9 +259,11 @@ class LogService {
     if (sharedHabitIds.length > 0) {
       sharedHabits = await Habit.find({
         _id: { $in: sharedHabitIds },
-        isArchived: false,
+        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
       }).sort({ createdAt: -1 });
     }
+
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
 
     // Owner names
     const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
@@ -212,7 +277,7 @@ class LogService {
 
     // Mark shared habits
     const markedSharedHabits = sharedHabits.map((h) => {
-      const obj = h.toObject();
+      const obj = this._serializeHabit(h, sharedStreakMap.get(h._id.toString()));
       const info = roleMap.get(h._id.toString());
       obj.isShared = true;
       obj.sharedBy = ownerMap.get(info?.ownerId) || 'Unknown';
@@ -221,17 +286,9 @@ class LogService {
     });
 
     const allHabits = [
-      ...ownHabits.map((h) => ({ ...h.toObject(), isShared: false })),
+      ...ownHabits.map((h) => ({ ...this._serializeHabit(h), isShared: false })),
       ...markedSharedHabits,
     ];
-
-    // Fetch logs for all habits the user has logged
-    const allHabitIds = allHabits.map((h) => h._id);
-    const logs = await HabitLog.find({
-      userId,
-      habitId: { $in: allHabitIds },
-      date: { $gte: start, $lte: end },
-    });
 
     return { startDate, endDate, habits: allHabits, logs };
   }
@@ -239,8 +296,16 @@ class LogService {
   async getMonthlyLogs(userId, month, year) {
     const startDate = getStartOfMonth(year, month);
     const endDate = getEndOfMonth(year, month);
+    const logs = await HabitLog.find({
+      userId,
+      date: { $gte: startDate, $lte: endDate },
+    });
+    const loggedHabitIds = this._getLoggedHabitIds(logs);
 
-    const ownHabits = await Habit.find({ userId, isArchived: false });
+    const ownHabits = await Habit.find({
+      userId,
+      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
+    });
 
     // Include shared habits
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
@@ -249,18 +314,15 @@ class LogService {
     if (sharedHabitIds.length > 0) {
       sharedHabits = await Habit.find({
         _id: { $in: sharedHabitIds },
-        isArchived: false,
+        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
       });
     }
 
-    const habits = [...ownHabits, ...sharedHabits];
-    const allHabitIds = habits.map((h) => h._id);
-
-    const logs = await HabitLog.find({
-      userId,
-      habitId: { $in: allHabitIds },
-      date: { $gte: startDate, $lte: endDate },
-    });
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+    const habits = [
+      ...ownHabits.map((habit) => this._serializeHabit(habit)),
+      ...sharedHabits.map((habit) => this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString()))),
+    ];
 
     return { month, year, habits, logs };
   }
@@ -268,8 +330,16 @@ class LogService {
   async getYearlyLogs(userId, year) {
     const startDate = getStartOfYear(year);
     const endDate = getEndOfYear(year);
+    const logs = await HabitLog.find({
+      userId,
+      date: { $gte: startDate, $lte: endDate },
+    });
+    const loggedHabitIds = this._getLoggedHabitIds(logs);
 
-    const ownHabits = await Habit.find({ userId, isArchived: false });
+    const ownHabits = await Habit.find({
+      userId,
+      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
+    });
 
     // Include shared habits
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
@@ -278,11 +348,15 @@ class LogService {
     if (sharedHabitIds.length > 0) {
       sharedHabits = await Habit.find({
         _id: { $in: sharedHabitIds },
-        isArchived: false,
+        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
       });
     }
 
-    const habits = [...ownHabits, ...sharedHabits];
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+    const habits = [
+      ...ownHabits.map((habit) => this._serializeHabit(habit)),
+      ...sharedHabits.map((habit) => this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString()))),
+    ];
     const allHabitIds = habits.map((h) => h._id);
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -313,12 +387,9 @@ class LogService {
       { $sort: { '_id.month': 1 } },
     ]);
 
-    const logs = await HabitLog.find({
-      userId,
-      date: { $gte: startDate, $lte: endDate },
-    });
+    const filteredLogs = logs.filter((log) => allHabitIds.some((habitId) => habitId.toString() === log.habitId.toString()));
 
-    return { year, habits, monthlyStats, logs };
+    return { year, habits, monthlyStats, logs: filteredLogs };
   }
 
   async getMembersProgress(requesterId, habitId, dateString) {
