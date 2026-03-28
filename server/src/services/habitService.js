@@ -1,7 +1,9 @@
 import Habit from '../models/Habit.js';
 import HabitLog from '../models/HabitLog.js';
+import SharedHabit from '../models/SharedHabit.js';
 import AppError from '../utils/AppError.js';
 import cache from './cacheService.js';
+import sharedHabitService from './sharedHabitService.js';
 
 class HabitService {
   _cacheKey(userId, opts = {}) {
@@ -25,12 +27,16 @@ class HabitService {
     return habits;
   }
 
-  async getById(habitId, userId) {
+  async getById(habitId, userId, { allowSharedAdmin = false } = {}) {
     const habit = await Habit.findById(habitId);
     if (!habit) {
       throw new AppError('Habit not found', 404);
     }
     if (habit.userId.toString() !== userId.toString()) {
+      if (allowSharedAdmin) {
+        const role = await sharedHabitService.getUserRoleForHabit(userId, habitId);
+        if (role === 'admin') return habit;
+      }
       throw new AppError('Not authorized to access this habit', 403);
     }
     return habit;
@@ -59,7 +65,7 @@ class HabitService {
   }
 
   async update(habitId, userId, data) {
-    const habit = await this.getById(habitId, userId);
+    const habit = await this.getById(habitId, userId, { allowSharedAdmin: true });
 
     const allowedFields = ['name', 'type', 'unit', 'target', 'color', 'icon', 'frequency', 'sortOrder', 'category'];
     for (const field of allowedFields) {
@@ -92,6 +98,7 @@ class HabitService {
   async delete(habitId, userId) {
     const habit = await this.getById(habitId, userId);
     await HabitLog.deleteMany({ habitId: habit._id });
+    await SharedHabit.findOneAndDelete({ habitId: habit._id });
     await Habit.findByIdAndDelete(habit._id);
     this._invalidateCache(userId);
     return { message: 'Habit and associated logs deleted' };

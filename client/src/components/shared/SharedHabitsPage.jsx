@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getSharedWithMe, getPendingInvites, leaveHabit, respondToInvite } from '../../api/sharedHabitApi';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 export default function SharedHabitsPage() {
+  const { user } = useAuth();
   const [sharedHabits, setSharedHabits] = useState([]);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -125,8 +127,9 @@ export default function SharedHabitsPage() {
               const habit = sh.habitId;
               const owner = sh.ownerId;
               const myMembership = sh.sharedWith?.find(
-                (m) => m.status === 'accepted'
+                (m) => (m.userId?._id || m.userId) === user?._id && m.status === 'accepted'
               );
+              const acceptedCount = (sh.sharedWith?.filter((m) => m.status === 'accepted').length || 0) + 1; // +1 for owner
               return (
                 <Card key={sh._id} className="p-4">
                   <div className="flex items-center justify-between">
@@ -146,7 +149,7 @@ export default function SharedHabitsPage() {
                           <span>&middot;</span>
                           <span className="capitalize">{myMembership?.role || 'member'}</span>
                           <span>&middot;</span>
-                          <span>{sh.sharedWith?.filter((m) => m.status === 'accepted').length} members</span>
+                          <span>{acceptedCount} members</span>
                         </div>
                       </div>
                     </div>

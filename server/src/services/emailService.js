@@ -159,7 +159,7 @@ class EmailService {
   async sendFeedbackNotification(userName, userEmail, mood, message, page) {
     const adminEmail = env.adminEmail;
     if (!adminEmail) {
-      console.log(`[Email Fallback] Feedback from ${userName} (${mood}): ${message || '(no message)'}`);
+      console.log(`[Email Fallback] Feedback notification skipped — ADMIN_EMAIL not configured. Feedback from ${userName} (${mood}) saved to database.`);
       return;
     }
 
