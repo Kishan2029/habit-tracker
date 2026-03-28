@@ -1,8 +1,10 @@
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import SharedHabit from '../models/SharedHabit.js';
 import Habit from '../models/Habit.js';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
+import emailService from './emailService.js';
 
 // Permission matrix actions
 const PERMISSIONS = {
@@ -18,13 +20,21 @@ const PERMISSIONS = {
 };
 
 class SharedHabitService {
+  // ─── Helper: extract ObjectId string safely (works for populated & raw) ─
+
+  _toId(ref) {
+    if (!ref) return null;
+    if (ref._id) return ref._id.toString();
+    return ref.toString();
+  }
+
   // ─── Permission Helper ──────────────────────────────────────────────
 
   _getRole(sharedHabit, userId) {
     const uid = userId.toString();
-    if (sharedHabit.ownerId.toString() === uid) return 'owner';
+    if (this._toId(sharedHabit.ownerId) === uid) return 'owner';
     const member = sharedHabit.sharedWith.find(
-      (m) => m.userId.toString() === uid && m.status === 'accepted'
+      (m) => this._toId(m.userId) === uid && m.status === 'accepted'
     );
     return member ? member.role : null;
   }
@@ -49,7 +59,7 @@ class SharedHabitService {
     }
 
     // Check if already shared
-    let shared = await SharedHabit.findOne({ habitId, ownerId });
+    let shared = await SharedHabit.findOne({ habitId });
     if (shared && shared.isActive) {
       return shared;
     }
@@ -57,17 +67,27 @@ class SharedHabitService {
     if (shared && !shared.isActive) {
       // Reactivate
       shared.isActive = true;
+      shared.ownerId = ownerId;
       shared.inviteCode = this._generateInviteCode();
       await shared.save();
       return shared;
     }
 
-    shared = await SharedHabit.create({
-      habitId,
-      ownerId,
-      inviteCode: this._generateInviteCode(),
-      sharedWith: [],
-    });
+    try {
+      shared = await SharedHabit.create({
+        habitId,
+        ownerId,
+        inviteCode: this._generateInviteCode(),
+        sharedWith: [],
+      });
+    } catch (err) {
+      // Handle race condition: another request created it first
+      if (err.code === 11000) {
+        shared = await SharedHabit.findOne({ habitId });
+        if (shared) return shared;
+      }
+      throw err;
+    }
 
     return shared;
   }
@@ -78,12 +98,12 @@ class SharedHabitService {
     const shared = await SharedHabit.findOne({ inviteCode, isActive: true });
     if (!shared) throw new AppError('Invalid or expired invite link', 404);
 
-    if (shared.ownerId.toString() === userId.toString()) {
+    if (this._toId(shared.ownerId) === userId.toString()) {
       throw new AppError('You cannot join your own shared habit', 400);
     }
 
     const alreadyJoined = shared.sharedWith.find(
-      (m) => m.userId.toString() === userId.toString()
+      (m) => this._toId(m.userId) === userId.toString()
     );
     if (alreadyJoined) {
       if (alreadyJoined.status === 'accepted') {
@@ -130,12 +150,12 @@ class SharedHabitService {
     if (!targetUser) throw new AppError('No user found with that email', 404);
 
     const targetId = targetUser._id.toString();
-    if (shared.ownerId.toString() === targetId) {
+    if (this._toId(shared.ownerId) === targetId) {
       throw new AppError('Cannot invite the habit owner', 400);
     }
 
     const existing = shared.sharedWith.find(
-      (m) => m.userId.toString() === targetId
+      (m) => this._toId(m.userId) === targetId
     );
     if (existing && existing.status === 'accepted') {
       throw new AppError('User is already a member', 400);
@@ -159,6 +179,22 @@ class SharedHabitService {
     }
 
     await shared.save();
+
+    // Send invite email (non-blocking — don't fail the invite if email fails)
+    try {
+      const inviter = await User.findById(requesterId, 'name');
+      const habit = await Habit.findById(habitId, 'name');
+      await emailService.sendHabitInviteEmail(
+        targetUser.email,
+        targetUser.name,
+        inviter?.name || 'Someone',
+        habit?.name || 'a habit',
+        shared.inviteCode
+      );
+    } catch (emailErr) {
+      console.error('Failed to send invite email:', emailErr.message);
+    }
+
     return shared;
   }
 
@@ -169,7 +205,7 @@ class SharedHabitService {
     if (!shared) throw new AppError('Shared habit not found', 404);
 
     const member = shared.sharedWith.find(
-      (m) => m.userId.toString() === userId.toString() && m.status === 'pending'
+      (m) => this._toId(m.userId) === userId.toString() && m.status === 'pending'
     );
     if (!member) throw new AppError('No pending invite found', 404);
 
@@ -192,7 +228,7 @@ class SharedHabitService {
 
     const requesterRole = this._getRole(shared, requesterId);
     const targetMember = shared.sharedWith.find(
-      (m) => m.userId.toString() === targetUserId.toString()
+      (m) => this._toId(m.userId) === targetUserId.toString()
     );
     if (!targetMember) throw new AppError('Member not found', 404);
 
@@ -202,7 +238,7 @@ class SharedHabitService {
     }
 
     shared.sharedWith = shared.sharedWith.filter(
-      (m) => m.userId.toString() !== targetUserId.toString()
+      (m) => this._toId(m.userId) !== targetUserId.toString()
     );
     await shared.save();
 
@@ -215,12 +251,12 @@ class SharedHabitService {
     const shared = await SharedHabit.findOne({ habitId, isActive: true });
     if (!shared) throw new AppError('Shared habit not found', 404);
 
-    if (shared.ownerId.toString() === userId.toString()) {
+    if (this._toId(shared.ownerId) === userId.toString()) {
       throw new AppError('Owner cannot leave. Transfer ownership first or unshare the habit.', 400);
     }
 
     const memberIndex = shared.sharedWith.findIndex(
-      (m) => m.userId.toString() === userId.toString()
+      (m) => this._toId(m.userId) === userId.toString()
     );
     if (memberIndex === -1) throw new AppError('You are not a member of this habit', 404);
 
@@ -241,7 +277,7 @@ class SharedHabitService {
     }
 
     const member = shared.sharedWith.find(
-      (m) => m.userId.toString() === targetUserId.toString()
+      (m) => this._toId(m.userId) === targetUserId.toString()
     );
     if (!member) throw new AppError('Member not found', 404);
 
@@ -257,12 +293,12 @@ class SharedHabitService {
     const shared = await SharedHabit.findOne({ habitId, isActive: true });
     if (!shared) throw new AppError('Shared habit not found', 404);
 
-    if (shared.ownerId.toString() !== ownerId.toString()) {
+    if (this._toId(shared.ownerId) !== ownerId.toString()) {
       throw new AppError('Only the owner can transfer ownership', 403);
     }
 
     const newOwnerMember = shared.sharedWith.find(
-      (m) => m.userId.toString() === newOwnerId.toString() && m.status === 'accepted'
+      (m) => this._toId(m.userId) === newOwnerId.toString() && m.status === 'accepted'
     );
     if (!newOwnerMember) {
       throw new AppError('New owner must be an accepted member', 400);
@@ -273,7 +309,7 @@ class SharedHabitService {
 
     // Remove new owner from sharedWith, add old owner as admin
     shared.sharedWith = shared.sharedWith.filter(
-      (m) => m.userId.toString() !== newOwnerId.toString()
+      (m) => this._toId(m.userId) !== newOwnerId.toString()
     );
     shared.sharedWith.push({
       userId: ownerId,
@@ -291,8 +327,7 @@ class SharedHabitService {
 
   async getSharedHabitsForUser(userId) {
     const sharedHabits = await SharedHabit.find({
-      'sharedWith.userId': userId,
-      'sharedWith.status': 'accepted',
+      sharedWith: { $elemMatch: { userId, status: 'accepted' } },
       isActive: true,
     }).populate('habitId', 'name icon color type unit target frequency category')
       .populate('ownerId', 'name email avatar');
@@ -313,7 +348,7 @@ class SharedHabitService {
 
     return sharedHabits.map((sh) => {
       const invite = sh.sharedWith.find(
-        (m) => m.userId.toString() === userId.toString() && m.status === 'pending'
+        (m) => this._toId(m.userId) === userId.toString() && m.status === 'pending'
       );
       return {
         habitId: sh.habitId,
@@ -365,7 +400,7 @@ class SharedHabitService {
     const shared = await SharedHabit.findOne({ habitId, isActive: true });
     if (!shared) throw new AppError('Shared habit not found', 404);
 
-    if (shared.ownerId.toString() !== ownerId.toString()) {
+    if (this._toId(shared.ownerId) !== ownerId.toString()) {
       throw new AppError('Only the owner can unshare a habit', 403);
     }
 
@@ -379,12 +414,13 @@ class SharedHabitService {
   // ─── Get User's Role for a Habit (used by logService) ───────────────
 
   async getUserRoleForHabit(userId, habitId) {
-    const shared = await SharedHabit.findOne({
-      habitId,
-      isActive: true,
-    });
+    const hid = new mongoose.Types.ObjectId(String(habitId));
+    const shared = await SharedHabit.findOne({ habitId: hid, isActive: true });
 
-    if (!shared) return null;
+    if (!shared) {
+      console.log(`[SharedHabit] No active SharedHabit found for habitId=${habitId}`);
+      return null;
+    }
 
     const uid = userId.toString();
     if (shared.ownerId.toString() === uid) return 'owner';
@@ -392,6 +428,11 @@ class SharedHabitService {
     const member = shared.sharedWith.find(
       (m) => m.userId.toString() === uid && m.status === 'accepted'
     );
+    if (!member) {
+      console.log(`[SharedHabit] User ${uid} not found in sharedWith for habit ${habitId}. Members:`,
+        shared.sharedWith.map(m => ({ uid: m.userId.toString(), status: m.status, role: m.role }))
+      );
+    }
     return member ? member.role : null;
   }
 
@@ -407,7 +448,7 @@ class SharedHabitService {
 
     return sharedHabits.map((sh) => {
       const member = sh.sharedWith.find(
-        (m) => m.userId.toString() === userId.toString() && m.status === 'accepted'
+        (m) => this._toId(m.userId) === userId.toString() && m.status === 'accepted'
       );
       return {
         habitId: sh.habitId,

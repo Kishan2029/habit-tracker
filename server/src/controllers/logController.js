@@ -32,3 +32,10 @@ export const getRangeLogs = catchAsync(async (req, res) => {
   const data = await logService.getRangeLogs(req.user._id, req.query.start, req.query.end);
   sendSuccess(res, data, 'Range logs retrieved');
 });
+
+export const getMembersProgress = catchAsync(async (req, res) => {
+  const date = req.query.date;
+  if (!date) throw new AppError('date query parameter is required', 400);
+  const data = await logService.getMembersProgress(req.user._id, req.params.habitId, date);
+  sendSuccess(res, data, 'Members progress retrieved');
+});

@@ -32,6 +32,7 @@ class LogService {
     const isOwner = habit.userId.toString() === userId.toString();
     if (!isOwner) {
       const role = await sharedHabitService.getUserRoleForHabit(userId, habitId);
+      console.log(`[Log] Shared habit auth: user=${userId}, habit=${habitId}, role=${role}`);
       if (!role) {
         throw new AppError('Not authorized to log this habit', 403);
       }
@@ -61,7 +62,12 @@ class LogService {
     const isNew = !result.lastErrorObject.updatedExisting;
     const logDoc = result.value;
 
-    await this.updateStreaks(habit, userId);
+    // Don't let streak calculation errors fail the whole request
+    try {
+      await this.updateStreaks(habit, userId);
+    } catch (err) {
+      console.error('Streak update failed:', err.message);
+    }
 
     return { log: logDoc, isNew };
   }
@@ -282,6 +288,96 @@ class LogService {
     });
 
     return { year, habits, monthlyStats, logs };
+  }
+
+  async getMembersProgress(requesterId, habitId, dateString) {
+    const date = toUTCMidnight(dateString);
+
+    // Get sharing info and verify permission
+    const { shared, requesterRole } = await sharedHabitService.getSharingInfo(requesterId, habitId);
+
+    const habit = await Habit.findById(habitId);
+    if (!habit) throw new AppError('Habit not found', 404);
+
+    // Build full member list: owner + accepted sharedWith members
+    const ownerUser = await User.findById(shared.ownerId._id || shared.ownerId, 'name email avatar');
+    const memberUserIds = shared.sharedWith
+      .filter((m) => m.status === 'accepted')
+      .map((m) => ({
+        userId: m.userId._id || m.userId,
+        role: m.role,
+      }));
+
+    // Fetch all logs for this habit + date (across all users)
+    const logs = await HabitLog.find({ habitId, date });
+    const logMap = new Map();
+    for (const log of logs) {
+      logMap.set(log.userId.toString(), log);
+    }
+
+    // Build member progress list
+    const members = [];
+
+    // Owner first
+    if (ownerUser) {
+      const ownerLog = logMap.get(ownerUser._id.toString());
+      members.push({
+        userId: ownerUser._id,
+        name: ownerUser.name,
+        avatar: ownerUser.avatar,
+        role: 'owner',
+        isOwner: true,
+        value: ownerLog?.value ?? null,
+        isCompleted: ownerLog
+          ? typeof ownerLog.value === 'boolean'
+            ? ownerLog.value
+            : ownerLog.value >= habit.target
+          : false,
+      });
+    }
+
+    // Other members
+    for (const member of memberUserIds) {
+      const uid = member.userId.toString();
+      // Get populated user data if available, otherwise fetch
+      const populatedMember = shared.sharedWith.find(
+        (m) => (m.userId._id || m.userId).toString() === uid && m.status === 'accepted'
+      );
+      const userInfo = populatedMember?.userId?.name
+        ? populatedMember.userId
+        : await User.findById(uid, 'name email avatar');
+
+      if (!userInfo) continue;
+
+      const memberLog = logMap.get(uid);
+      members.push({
+        userId: userInfo._id || uid,
+        name: userInfo.name,
+        avatar: userInfo.avatar,
+        role: member.role,
+        isOwner: false,
+        value: memberLog?.value ?? null,
+        isCompleted: memberLog
+          ? typeof memberLog.value === 'boolean'
+            ? memberLog.value
+            : memberLog.value >= habit.target
+          : false,
+      });
+    }
+
+    const completedCount = members.filter((m) => m.isCompleted).length;
+
+    return {
+      habitId,
+      habitName: habit.name,
+      habitType: habit.type,
+      target: habit.target,
+      unit: habit.unit,
+      date: dateString,
+      members,
+      completedCount,
+      totalMembers: members.length,
+    };
   }
 }
 

@@ -68,8 +68,8 @@ export default function WeeklyView() {
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
       fetchData();
-    } catch {
-      toast.error('Failed to save');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save');
     }
   };
 

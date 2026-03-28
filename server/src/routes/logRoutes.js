@@ -14,6 +14,7 @@ import {
   getMonthlyLogs,
   getYearlyLogs,
   getRangeLogs,
+  getMembersProgress,
 } from '../controllers/logController.js';
 
 const router = Router();
@@ -330,5 +331,8 @@ router.get('/yearly', yearlyQueryRules, validate, getYearlyLogs);
  *                         $ref: '#/components/schemas/HabitLog'
  */
 router.get('/range', rangeQueryRules, validate, getRangeLogs);
+
+// Shared habit member progress
+router.get('/shared/:habitId/progress', getMembersProgress);
 
 export default router;

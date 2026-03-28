@@ -10,6 +10,7 @@ import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { triggerConfetti, triggerMiniConfetti } from '../ui/ConfettiEffect';
 import SharedBadge from '../ui/SharedBadge';
+import MemberProgressList from '../shared/MemberProgressList';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDateString } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -19,6 +20,7 @@ export default function TodayView() {
   const [date, setDate] = useState(today);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expandedHabit, setExpandedHabit] = useState(null);
   const prevCompleted = useRef(0);
   const fetchIdRef = useRef(0); // tracks latest fetch to prevent race conditions
   const userLoggedRef = useRef(false); // true only after user actively logs a habit
@@ -45,6 +47,7 @@ export default function TodayView() {
   // Reset confetti tracking when date changes (navigation)
   useEffect(() => {
     userLoggedRef.current = false;
+    setExpandedHabit(null);
     fetchData();
   }, [fetchData]);
 
@@ -68,8 +71,14 @@ export default function TodayView() {
       }
       fetchData();
     } catch (err) {
-      toast.error('Failed to save log');
+      const msg = err.response?.data?.message || 'Failed to save log';
+      console.error('Log error:', err.response?.data || err.message);
+      toast.error(msg);
     }
+  };
+
+  const toggleExpand = (habitId) => {
+    setExpandedHabit(expandedHabit === habitId ? null : habitId);
   };
 
   if (loading) return <LoadingSpinner />;
@@ -116,7 +125,26 @@ export default function TodayView() {
                     </h3>
                     {isShared && <SharedBadge sharedBy={sharedBy} />}
                   </div>
-                  <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
+                  <div className="flex items-center gap-2">
+                    <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
+                    {isShared && (
+                      <button
+                        onClick={() => toggleExpand(habit._id)}
+                        className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-0.5"
+                      >
+                        <span>👥</span>
+                        <MemberProgressList habitId={habit._id} date={date} compact />
+                        <svg
+                          className={`w-3 h-3 transition-transform ${expandedHabit === habit._id ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -140,6 +168,13 @@ export default function TodayView() {
                 )}
               </div>
             </div>
+
+            {/* Expandable member progress */}
+            {isShared && expandedHabit === habit._id && (
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <MemberProgressList habitId={habit._id} date={date} />
+              </div>
+            )}
           </Card>
         ))}
       </div>

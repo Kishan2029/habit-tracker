@@ -131,6 +131,29 @@ class EmailService {
     await this._send(email, 'Your password has been reset', html, 'Password reset confirmation');
   }
 
+  // ─── Shared Habit Invite ─────────────────────────────────────────
+
+  async sendHabitInviteEmail(email, inviteeName, inviterName, habitName, inviteCode) {
+    const joinUrl = `${env.clientUrl}/join/${inviteCode}`;
+    const html = `
+      <h3 style="color: #111827; margin-top: 0;">You're Invited!</h3>
+      <p style="color: #374151; line-height: 1.6;">
+        Hi ${inviteeName}, <strong>${inviterName}</strong> has invited you to join the shared habit
+        <strong>"${habitName}"</strong> on Habit Tracker.
+      </p>
+      <p style="color: #374151; line-height: 1.6;">
+        Track this habit together, stay accountable, and see each other's progress!
+      </p>
+      <a href="${joinUrl}" style="display: inline-block; padding: 12px 24px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">
+        Accept Invite
+      </a>
+      <p style="color: #6b7280; font-size: 14px;">
+        Or log into your account and check the Shared Habits page to accept the invite.
+      </p>
+    `;
+    await this._send(email, `${inviterName} invited you to "${habitName}" on Habit Tracker`, html, 'Habit invite');
+  }
+
   // ─── Password Changed (from Settings) ────────────────────────────────
 
   async sendPasswordChangedEmail(email, name) {
