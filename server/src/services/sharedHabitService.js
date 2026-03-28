@@ -5,6 +5,7 @@ import Habit from '../models/Habit.js';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import emailService from './emailService.js';
+import cache from './cacheService.js';
 
 // Permission matrix actions
 const PERMISSIONS = {
@@ -277,9 +278,9 @@ class SharedHabitService {
     }
 
     const member = shared.sharedWith.find(
-      (m) => this._toId(m.userId) === targetUserId.toString()
+      (m) => this._toId(m.userId) === targetUserId.toString() && m.status === 'accepted'
     );
-    if (!member) throw new AppError('Member not found', 404);
+    if (!member) throw new AppError('Accepted member not found', 404);
 
     member.role = newRole;
     await shared.save();
@@ -307,6 +308,10 @@ class SharedHabitService {
     // Update the habit's userId to new owner
     await Habit.findByIdAndUpdate(habitId, { userId: newOwnerId });
 
+    // Invalidate habit cache for both old and new owner
+    cache.delByPrefix(`habits:${ownerId}`);
+    cache.delByPrefix(`habits:${newOwnerId}`);
+
     // Remove new owner from sharedWith, add old owner as admin
     shared.sharedWith = shared.sharedWith.filter(
       (m) => this._toId(m.userId) !== newOwnerId.toString()
@@ -329,10 +334,14 @@ class SharedHabitService {
     const sharedHabits = await SharedHabit.find({
       sharedWith: { $elemMatch: { userId, status: 'accepted' } },
       isActive: true,
-    }).populate('habitId', 'name icon color type unit target frequency category')
-      .populate('ownerId', 'name email avatar');
+    }).populate({
+      path: 'habitId',
+      select: 'name icon color type unit target frequency category isArchived',
+      match: { isArchived: false },
+    }).populate('ownerId', 'name email avatar');
 
-    return sharedHabits;
+    // Filter out entries where the habit was archived (populated as null)
+    return sharedHabits.filter((sh) => sh.habitId != null);
   }
 
   // ─── Get Pending Invites ────────────────────────────────────────────
@@ -354,7 +363,7 @@ class SharedHabitService {
         habitId: sh.habitId,
         ownerId: sh.ownerId,
         role: invite.role,
-        invitedAt: invite.joinedAt,
+        invitedAt: invite._id?.getTimestamp?.() || invite.joinedAt,
       };
     });
   }

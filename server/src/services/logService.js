@@ -240,9 +240,25 @@ class LogService {
     const startDate = getStartOfMonth(year, month);
     const endDate = getEndOfMonth(year, month);
 
-    const habits = await Habit.find({ userId, isArchived: false });
+    const ownHabits = await Habit.find({ userId, isArchived: false });
+
+    // Include shared habits
+    const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
+    const sharedHabitIds = sharedEntries.map((e) => e.habitId);
+    let sharedHabits = [];
+    if (sharedHabitIds.length > 0) {
+      sharedHabits = await Habit.find({
+        _id: { $in: sharedHabitIds },
+        isArchived: false,
+      });
+    }
+
+    const habits = [...ownHabits, ...sharedHabits];
+    const allHabitIds = habits.map((h) => h._id);
+
     const logs = await HabitLog.find({
       userId,
+      habitId: { $in: allHabitIds },
       date: { $gte: startDate, $lte: endDate },
     });
 
@@ -253,7 +269,20 @@ class LogService {
     const startDate = getStartOfYear(year);
     const endDate = getEndOfYear(year);
 
-    const habits = await Habit.find({ userId, isArchived: false });
+    const ownHabits = await Habit.find({ userId, isArchived: false });
+
+    // Include shared habits
+    const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
+    const sharedHabitIds = sharedEntries.map((e) => e.habitId);
+    let sharedHabits = [];
+    if (sharedHabitIds.length > 0) {
+      sharedHabits = await Habit.find({
+        _id: { $in: sharedHabitIds },
+        isArchived: false,
+      });
+    }
+
+    const habits = [...ownHabits, ...sharedHabits];
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
