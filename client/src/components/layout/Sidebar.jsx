@@ -4,6 +4,7 @@ const navItems = [
   { path: '/today', label: 'Today', icon: '\u{1F4C5}' },
   { path: '/weekly', label: 'Weekly', icon: '\u{1F4C6}' },
   { path: '/habits', label: 'Habits', icon: '\u{1F4CB}' },
+  { path: '/shared', label: 'Shared', icon: '\u{1F91D}' },
   { path: '/analytics', label: 'Analytics', icon: '\u{1F4CA}' },
   { path: '/settings', label: 'Settings', icon: '\u2699\uFE0F' },
 ];

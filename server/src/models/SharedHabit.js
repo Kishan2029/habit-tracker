@@ -20,12 +20,21 @@ const sharedHabitSchema = new mongoose.Schema(
         },
         role: {
           type: String,
-          enum: ['viewer', 'participant'],
-          default: 'viewer',
+          enum: ['admin', 'member', 'viewer'],
+          default: 'member',
         },
         joinedAt: {
           type: Date,
           default: Date.now,
+        },
+        invitedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        status: {
+          type: String,
+          enum: ['pending', 'accepted', 'declined'],
+          default: 'accepted',
         },
       },
     ],
