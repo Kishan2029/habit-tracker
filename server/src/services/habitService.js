@@ -66,6 +66,7 @@ class HabitService {
 
   async update(habitId, userId, data) {
     const habit = await this.getById(habitId, userId, { allowSharedAdmin: true });
+    const ownerId = habit.userId.toString();
 
     const allowedFields = ['name', 'type', 'unit', 'target', 'color', 'icon', 'frequency', 'sortOrder', 'category'];
     for (const field of allowedFields) {
@@ -77,8 +78,8 @@ class HabitService {
     await habit.save();
     this._invalidateCache(userId);
     // If a shared admin updated, also invalidate the owner's cache
-    if (habit.userId.toString() !== userId.toString()) {
-      this._invalidateCache(habit.userId.toString());
+    if (ownerId !== userId.toString()) {
+      this._invalidateCache(ownerId);
     }
     return habit;
   }
