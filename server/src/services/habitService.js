@@ -20,7 +20,7 @@ class HabitService {
     if (category) {
       filter.category = category;
     }
-    const habits = await Habit.find(filter).sort({ sortOrder: 1, createdAt: -1 });
+    const habits = await Habit.find(filter).sort({ sortOrder: 1, createdAt: -1 }).lean();
     cache.set(key, habits, 120);
     return habits;
   }
@@ -41,9 +41,16 @@ class HabitService {
   }
 
   async create(userId, data) {
+    const allowedCreateFields = ['name', 'type', 'unit', 'target', 'color', 'icon', 'frequency', 'category'];
+    const filtered = {};
+    for (const field of allowedCreateFields) {
+      if (data[field] !== undefined) {
+        filtered[field] = data[field];
+      }
+    }
     const count = await Habit.countDocuments({ userId, isArchived: false });
     const habit = await Habit.create({
-      ...data,
+      ...filtered,
       userId,
       sortOrder: count,
     });
@@ -84,7 +91,6 @@ class HabitService {
 
   async delete(habitId, userId) {
     const habit = await this.getById(habitId, userId);
-    // Delete logs first so we don't orphan them if habit deletion succeeds but log deletion fails
     await HabitLog.deleteMany({ habitId: habit._id });
     await Habit.findByIdAndDelete(habit._id);
     this._invalidateCache(userId);

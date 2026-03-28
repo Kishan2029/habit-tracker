@@ -18,6 +18,15 @@ class EmailService {
     }
   }
 
+  _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // ─── Shared email wrapper ─────────────────────────────────────────────
 
   _wrap(content) {
@@ -54,7 +63,7 @@ class EmailService {
   async sendWelcomeEmail(email, name) {
     const loginUrl = `${env.clientUrl}/login`;
     const html = `
-      <h3 style="color: #111827; margin-top: 0;">Welcome, ${name}!</h3>
+      <h3 style="color: #111827; margin-top: 0;">Welcome, ${this._escapeHtml(name)}!</h3>
       <p style="color: #374151; line-height: 1.6;">
         Your Habit Tracker account has been created successfully. Start building
         positive habits and track your daily progress.
@@ -90,9 +99,7 @@ class EmailService {
     `;
 
     if (!this.isConfigured) {
-      console.log(`[Email Fallback] Password reset for ${email}`);
-      console.log(`[Email Fallback] Reset URL: ${resetUrl}`);
-      console.log(`[Email Fallback] Token: ${resetToken}`);
+      console.log(`[Email Fallback] Password reset email for ${email} (token not logged for security)`);
       return;
     }
 
@@ -110,7 +117,7 @@ class EmailService {
     const html = `
       <h3 style="color: #111827; margin-top: 0;">Password Reset Successful</h3>
       <p style="color: #374151; line-height: 1.6;">
-        Hi ${name}, your password has been successfully reset. You can now log in with your new password.
+        Hi ${this._escapeHtml(name)}, your password has been successfully reset. You can now log in with your new password.
       </p>
       <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
         <p style="color: #92400e; font-size: 14px; margin: 0;">
@@ -130,7 +137,7 @@ class EmailService {
     const html = `
       <h3 style="color: #111827; margin-top: 0;">Password Changed</h3>
       <p style="color: #374151; line-height: 1.6;">
-        Hi ${name}, your Habit Tracker password was changed successfully from your account settings.
+        Hi ${this._escapeHtml(name)}, your Habit Tracker password was changed successfully from your account settings.
       </p>
       <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
         <p style="color: #92400e; font-size: 14px; margin: 0;">

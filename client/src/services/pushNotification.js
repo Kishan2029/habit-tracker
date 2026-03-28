@@ -74,8 +74,8 @@ export async function unsubscribeFromPush() {
   const subscription = await registration.pushManager.getSubscription();
   if (subscription) {
     await subscription.unsubscribe();
+    await api.delete('/push/unsubscribe');
   }
-  await api.delete('/push/unsubscribe');
 }
 
 export async function isSubscribed() {

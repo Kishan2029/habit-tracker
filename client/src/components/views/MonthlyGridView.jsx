@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
@@ -44,14 +44,14 @@ export default function MonthlyGridView() {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, end, selectedHabit]);
+  }, [start, end]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const handleToggle = async (habitId, dateStr, currentValue, habit) => {
-    const newValue = habit.type === 'boolean' ? !currentValue : (currentValue || 0) + 1;
+    const newValue = habit.type === 'boolean' ? !currentValue : Math.max(0, (currentValue || 0) + 1);
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
       fetchData();

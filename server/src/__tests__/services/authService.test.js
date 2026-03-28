@@ -12,6 +12,10 @@ jest.unstable_mockModule('../../config/env.js', () => ({
   default: {
     jwtSecret: 'test-secret-key-for-testing',
     jwtExpiresIn: '7d',
+    nodeEnv: 'test',
+    clientUrl: 'http://localhost:5173',
+    smtp: { host: '', user: '', pass: '', port: 587 },
+    emailFrom: 'test@test.com',
   },
 }));
 
@@ -140,15 +144,11 @@ describe('AuthService', () => {
       expect(mockUser.save).toHaveBeenCalledWith({ validateBeforeSave: false });
     });
 
-    it('should throw 404 if user not found', async () => {
+    it('should return null token if user not found (no email enumeration)', async () => {
       User.findOne.mockResolvedValue(null);
 
-      await expect(
-        authService.forgotPassword('noone@example.com')
-      ).rejects.toMatchObject({
-        message: 'No account found with that email',
-        statusCode: 404,
-      });
+      const result = await authService.forgotPassword('noone@example.com');
+      expect(result).toEqual({ resetToken: null });
     });
   });
 

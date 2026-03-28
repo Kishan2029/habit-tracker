@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -13,7 +14,8 @@ function getColor(percentage, isDark) {
 
 export default function YearlyHeatmap({ year, logs, habits, selectedHabitId }) {
   const [tooltip, setTooltip] = useState(null);
-  const isDark = document.documentElement.classList.contains('dark');
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const { weeks, monthPositions, totalCompleted } = useMemo(() => {
     // Build log lookup

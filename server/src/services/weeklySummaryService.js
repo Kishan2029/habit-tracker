@@ -15,7 +15,7 @@ class WeeklySummaryService {
 
     const logs = await HabitLog.find({
       userId,
-      date: { $gte: startDate, $lte: endDate },
+      date: { $gte: startDate, $lt: endDate },
     });
 
     let completedCount = 0;

@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import cloudinary from '../config/cloudinary.js';
+import env from '../config/env.js';
 
 class UserService {
   async getProfile(userId) {
@@ -51,7 +52,7 @@ class UserService {
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: 'habittracker_dev/avatars',
+          folder: `habittracker_${env.nodeEnv}/avatars`,
           transformation: [{ width: 200, height: 200, crop: 'fill', gravity: 'face' }],
         },
         (error, result) => {

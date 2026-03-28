@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
@@ -27,20 +27,24 @@ export default function WeeklyView() {
   const [weekStart, setWeekStart] = useState(getWeekStart(today));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const fetchIdRef = useRef(0);
   const navigate = useNavigate();
 
   const weekDays = getWeekDays(weekStart);
   const weekEnd = weekDays[6];
 
   const fetchData = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
     setLoading(true);
     try {
       const { data: res } = await getRangeLogs(weekStart, weekEnd);
+      if (fetchId !== fetchIdRef.current) return;
       setData(res.data);
     } catch {
+      if (fetchId !== fetchIdRef.current) return;
       toast.error('Failed to load weekly data');
     } finally {
-      setLoading(false);
+      if (fetchId === fetchIdRef.current) setLoading(false);
     }
   }, [weekStart, weekEnd]);
 

@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema(
       url: { type: String, default: '' },
       publicId: { type: String, default: '' },
     },
+    passwordChangedAt: Date,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
   },

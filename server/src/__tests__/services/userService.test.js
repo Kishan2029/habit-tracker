@@ -7,6 +7,29 @@ jest.unstable_mockModule('../../models/User.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../config/env.js', () => ({
+  default: {
+    port: 5000,
+    mongodbUri: 'mongodb://localhost/test',
+    jwtSecret: 'test-secret',
+    jwtExpiresIn: '7d',
+    nodeEnv: 'test',
+    clientUrl: 'http://localhost:5173',
+    corsOrigin: 'http://localhost:5173',
+    smtp: { host: '', user: '', pass: '', port: 587 },
+    emailFrom: 'test@test.com',
+    adminEmail: '',
+    cloudinary: { cloudName: '', apiKey: '', apiSecret: '' },
+    vapid: { publicKey: '', privateKey: '', email: '' },
+  },
+}));
+
+jest.unstable_mockModule('../../config/cloudinary.js', () => ({
+  default: {
+    config: () => ({}),
+  },
+}));
+
 const { default: User } = await import('../../models/User.js');
 const { default: userService } = await import('../../services/userService.js');
 

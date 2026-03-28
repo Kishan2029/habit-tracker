@@ -27,6 +27,7 @@ export default function HabitList() {
   );
 
   const fetchHabits = useCallback(async () => {
+    setLoading(true);
     try {
       const { data } = await getHabits(showArchived, categoryFilter || undefined);
       setHabits(data.data.habits);

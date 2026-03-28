@@ -48,7 +48,7 @@ describe('WeeklySummaryService', () => {
       // Verify the date range query uses UTC dates (no time-of-day offset)
       const findCall = HabitLog.find.mock.calls[0][0];
       const startDate = findCall.date.$gte;
-      const endDate = findCall.date.$lte;
+      const endDate = findCall.date.$lt;
 
       // Both dates should be at UTC midnight
       expect(startDate.getUTCHours()).toBe(0);

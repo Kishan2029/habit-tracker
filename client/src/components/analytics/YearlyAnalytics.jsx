@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getYearlyLogs } from '../../api/logApi';
 import CompletionChart from './CompletionChart';
 import YearlyHeatmap from './YearlyHeatmap';
@@ -13,17 +13,21 @@ export default function YearlyAnalytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
+    const fetchId = ++fetchIdRef.current;
     const fetchData = async () => {
       setLoading(true);
       try {
         const { data: res } = await getYearlyLogs(year);
+        if (fetchId !== fetchIdRef.current) return;
         setData(res.data);
       } catch {
+        if (fetchId !== fetchIdRef.current) return;
         setData(null);
       } finally {
-        setLoading(false);
+        if (fetchId === fetchIdRef.current) setLoading(false);
       }
     };
     fetchData();

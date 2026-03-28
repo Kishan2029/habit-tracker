@@ -68,17 +68,20 @@ class AuthService {
   async forgotPassword(email) {
     const user = await User.findOne({ email });
     if (!user) {
-      // In production, don't reveal whether email exists
-      if (env.nodeEnv === 'production') {
-        return { resetToken: null };
-      }
-      throw new AppError('No account found with that email', 404);
+      return { resetToken: null };
     }
 
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
 
-    await emailService.sendPasswordResetEmail(email, resetToken);
+    try {
+      await emailService.sendPasswordResetEmail(email, resetToken);
+    } catch (err) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      throw new AppError('There was an error sending the email. Try again later.', 500);
+    }
 
     return { resetToken };
   }
@@ -101,6 +104,7 @@ class AuthService {
     user.passwordHash = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.passwordChangedAt = new Date();
     await user.save();
 
     // Send password reset confirmation email (non-blocking)
@@ -127,6 +131,7 @@ class AuthService {
     }
 
     user.passwordHash = newPassword;
+    user.passwordChangedAt = new Date();
     await user.save();
 
     // Send password changed notification email (non-blocking)
@@ -134,7 +139,7 @@ class AuthService {
       console.error('[Email] Failed to send password changed email:', err.message);
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: 'Password changed successfully', token: this.generateToken(user._id) };
   }
 }
 
