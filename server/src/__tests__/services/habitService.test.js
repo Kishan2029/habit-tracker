@@ -32,15 +32,23 @@ jest.unstable_mockModule('../../services/cacheService.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
+  default: {
+    getUserRoleForHabit: jest.fn(),
+  },
+}));
+
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: HabitLog } = await import('../../models/HabitLog.js');
 const { default: SharedHabit } = await import('../../models/SharedHabit.js');
 const { default: cache } = await import('../../services/cacheService.js');
+const { default: sharedHabitService } = await import('../../services/sharedHabitService.js');
 const { default: habitService } = await import('../../services/habitService.js');
 
 describe('HabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
   });
 
   describe('_cacheKey', () => {
@@ -173,6 +181,22 @@ describe('HabitService', () => {
       expect(habit.userId.toString()).toBe('user1'); // not overwritten
       expect(habit.save).toHaveBeenCalled();
       expect(cache.delByPrefix).toHaveBeenCalledWith('habits:user1');
+    });
+
+    it('should invalidate the owner cache when a shared admin updates a habit', async () => {
+      const habit = {
+        _id: 'h1',
+        userId: { toString: () => 'owner1' },
+        name: 'Original',
+        save: jest.fn().mockResolvedValue(true),
+      };
+      Habit.findById.mockResolvedValue(habit);
+      sharedHabitService.getUserRoleForHabit.mockResolvedValue('admin');
+
+      await habitService.update('h1', 'admin1', { name: 'Updated' });
+
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:admin1');
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:owner1');
     });
   });
 
