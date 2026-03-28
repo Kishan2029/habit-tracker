@@ -283,6 +283,7 @@ class LogService {
     }
 
     const habits = [...ownHabits, ...sharedHabits];
+    const allHabitIds = habits.map((h) => h._id);
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
@@ -290,6 +291,7 @@ class LogService {
       {
         $match: {
           userId: userObjectId,
+          habitId: { $in: allHabitIds },
           date: { $gte: startDate, $lte: endDate },
         },
       },
