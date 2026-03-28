@@ -272,6 +272,7 @@ describe('LogService', () => {
 
       const result = await logService.getDailyLogs('user1', '2025-06-15');
 
+      // These come from the streakService mock above, proving we override the owner's stored streaks.
       expect(result.habits[0].habit.currentStreak).toBe(3);
       expect(result.habits[0].habit.longestStreak).toBe(5);
     });

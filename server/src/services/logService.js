@@ -263,8 +263,6 @@ class LogService {
       }).sort({ createdAt: -1 });
     }
 
-    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
-
     // Owner names
     const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
     const owners = ownerIds.length > 0
@@ -277,7 +275,7 @@ class LogService {
 
     // Mark shared habits
     const markedSharedHabits = sharedHabits.map((h) => {
-      const obj = this._serializeHabit(h, sharedStreakMap.get(h._id.toString()));
+      const obj = this._serializeHabit(h);
       const info = roleMap.get(h._id.toString());
       obj.isShared = true;
       obj.sharedBy = ownerMap.get(info?.ownerId) || 'Unknown';
@@ -387,7 +385,8 @@ class LogService {
       { $sort: { '_id.month': 1 } },
     ]);
 
-    const filteredLogs = logs.filter((log) => allHabitIds.some((habitId) => habitId.toString() === log.habitId.toString()));
+    const habitIdSet = new Set(allHabitIds.map((habitId) => habitId.toString()));
+    const filteredLogs = logs.filter((log) => habitIdSet.has(log.habitId.toString()));
 
     return { year, habits, monthlyStats, logs: filteredLogs };
   }
