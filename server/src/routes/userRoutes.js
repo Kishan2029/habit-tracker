@@ -211,6 +211,12 @@ router.put('/profile/avatar', upload.single('avatar'), uploadAvatar);
  *                 message:
  *                   type: string
  *                   example: Password changed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: New JWT token (client should update stored token)
  *       400:
  *         description: Validation error or incorrect current password
  *         content:
