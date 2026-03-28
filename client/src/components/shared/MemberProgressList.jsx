@@ -9,16 +9,19 @@ export default function MemberProgressList({ habitId, date, compact = false }) {
 
   useEffect(() => {
     if (!habitId || !date) return;
+    let cancelled = false;
     setLoading(true);
     setError(false);
     getMembersProgress(habitId, date)
-      .then(({ data: res }) => setData(res.data))
+      .then(({ data: res }) => { if (!cancelled) setData(res.data); })
       .catch((err) => {
+        if (cancelled) return;
         console.error('MemberProgressList error:', err.response?.data || err.message);
         setData(null);
         setError(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [habitId, date]);
 
   if (loading) {
