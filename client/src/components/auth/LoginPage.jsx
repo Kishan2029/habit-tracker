@@ -108,7 +108,11 @@ export default function LoginPage() {
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Don&apos;t have an account?{' '}
-              <Link to="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+              <Link
+                to="/register"
+                state={{ from: redirectTo }}
+                className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+              >
                 Sign up
               </Link>
             </p>

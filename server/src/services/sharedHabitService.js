@@ -58,6 +58,9 @@ class SharedHabitService {
     if (habit.userId.toString() !== ownerId.toString()) {
       throw new AppError('Only the habit owner can share it', 403);
     }
+    if (habit.isArchived) {
+      throw new AppError('Archived habits cannot be shared', 400);
+    }
 
     // Check if already shared
     let shared = await SharedHabit.findOne({ habitId });
@@ -70,6 +73,7 @@ class SharedHabitService {
       shared.isActive = true;
       shared.ownerId = ownerId;
       shared.inviteCode = this._generateInviteCode();
+      shared.sharedWith = [];
       await shared.save();
       return shared;
     }
@@ -384,7 +388,16 @@ class SharedHabitService {
       throw new AppError('You do not have access to this shared habit', 403);
     }
 
-    return { shared, requesterRole: role };
+    const sharedData = shared.toObject();
+
+    if (!this._checkPermission(shared, requesterId, 'invite')) {
+      delete sharedData.inviteCode;
+      sharedData.sharedWith = sharedData.sharedWith
+        .filter((member) => member.status === 'accepted')
+        .map(({ invitedBy, ...member }) => member);
+    }
+
+    return { shared: sharedData, requesterRole: role };
   }
 
   // ─── Regenerate Invite Code ─────────────────────────────────────────
@@ -415,6 +428,7 @@ class SharedHabitService {
 
     shared.isActive = false;
     shared.inviteCode = undefined;
+    shared.sharedWith = [];
     await shared.save();
 
     return { message: 'Habit unshared' };
