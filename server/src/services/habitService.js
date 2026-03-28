@@ -81,6 +81,10 @@ class HabitService {
 
   async archive(habitId, userId) {
     const habit = await this.getById(habitId, userId);
+    const activeShare = await SharedHabit.findOne({ habitId: habit._id, isActive: true });
+    if (activeShare) {
+      throw new AppError('Unshare the habit before archiving it', 400);
+    }
     habit.isArchived = true;
     await habit.save();
     this._invalidateCache(userId);

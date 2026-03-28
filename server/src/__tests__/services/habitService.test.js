@@ -17,6 +17,13 @@ jest.unstable_mockModule('../../models/HabitLog.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../models/SharedHabit.js', () => ({
+  default: {
+    findOne: jest.fn(),
+    findOneAndDelete: jest.fn(),
+  },
+}));
+
 jest.unstable_mockModule('../../services/cacheService.js', () => ({
   default: {
     get: jest.fn(),
@@ -27,6 +34,7 @@ jest.unstable_mockModule('../../services/cacheService.js', () => ({
 
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: HabitLog } = await import('../../models/HabitLog.js');
+const { default: SharedHabit } = await import('../../models/SharedHabit.js');
 const { default: cache } = await import('../../services/cacheService.js');
 const { default: habitService } = await import('../../services/habitService.js');
 
@@ -177,10 +185,28 @@ describe('HabitService', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue(null);
 
       await habitService.archive('h1', 'user1');
       expect(habit.isArchived).toBe(true);
       expect(habit.save).toHaveBeenCalled();
+    });
+
+    it('should reject archiving an active shared habit', async () => {
+      const habit = {
+        _id: 'h1',
+        userId: { toString: () => 'user1' },
+        isArchived: false,
+        save: jest.fn(),
+      };
+      Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue({ _id: 'sh1' });
+
+      await expect(habitService.archive('h1', 'user1')).rejects.toMatchObject({
+        message: 'Unshare the habit before archiving it',
+        statusCode: 400,
+      });
+      expect(habit.save).not.toHaveBeenCalled();
     });
   });
 
@@ -207,6 +233,7 @@ describe('HabitService', () => {
       };
       Habit.findById.mockResolvedValue(habit);
       HabitLog.deleteMany.mockResolvedValue({ deletedCount: 5 });
+      SharedHabit.findOneAndDelete.mockResolvedValue(true);
       Habit.findByIdAndDelete.mockResolvedValue(true);
 
       const result = await habitService.delete('h1', 'user1');

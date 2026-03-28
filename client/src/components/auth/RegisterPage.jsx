@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -28,6 +28,8 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState({});
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from || '/today';
 
   const strength = getPasswordStrength(password);
 
@@ -65,7 +67,7 @@ export default function RegisterPage() {
     try {
       await register(name, email, password);
       toast.success('Account created! Check your email for a welcome message.');
-      navigate('/today');
+      navigate(redirectTo);
     } catch (err) {
       const message = err.response?.data?.message || 'Registration failed';
       toast.error(message);
