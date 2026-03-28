@@ -5,17 +5,28 @@ export default function MemberProgressList({ habitId, date, compact = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     if (!habitId || !date) return;
     setLoading(true);
+    setError(false);
     getMembersProgress(habitId, date)
       .then(({ data: res }) => setData(res.data))
-      .catch(() => setData(null))
+      .catch((err) => {
+        console.error('MemberProgressList error:', err.response?.data || err.message);
+        setData(null);
+        setError(true);
+      })
       .finally(() => setLoading(false));
   }, [habitId, date]);
 
   if (loading) {
     return <div className="text-xs text-gray-400 py-1">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-xs text-red-400 py-1">Could not load progress</div>;
   }
 
   if (!data || data.members.length === 0) {

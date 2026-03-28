@@ -122,8 +122,9 @@ class SharedHabitService {
         return shared;
       }
       if (alreadyJoined.status === 'declined') {
-        // Allow re-joining
+        // Allow re-joining — reset role to default 'member'
         alreadyJoined.status = 'accepted';
+        alreadyJoined.role = 'member';
         alreadyJoined.joinedAt = new Date();
         await shared.save();
         return shared;
@@ -186,6 +187,8 @@ class SharedHabitService {
     await shared.save();
 
     // Send invite email (non-blocking — don't fail the invite if email fails)
+    let emailSent = false;
+    let emailError = null;
     try {
       const inviter = await User.findById(requesterId, 'name');
       const habit = await Habit.findById(habitId, 'name');
@@ -196,11 +199,13 @@ class SharedHabitService {
         habit?.name || 'a habit',
         shared.inviteCode
       );
+      emailSent = emailService.isConfigured; // only truly sent if SMTP is configured
     } catch (emailErr) {
       console.error('Failed to send invite email:', emailErr.message);
+      emailError = emailErr.message;
     }
 
-    return shared;
+    return { shared, emailSent, emailError };
   }
 
   // ─── Respond to Invite ──────────────────────────────────────────────
@@ -372,6 +377,15 @@ class SharedHabitService {
     });
   }
 
+  // ─── Populate a SharedHabit document ────────────────────────────────
+
+  async _populateShared(shared) {
+    return SharedHabit.findById(shared._id)
+      .populate('sharedWith.userId', 'name email avatar')
+      .populate('sharedWith.invitedBy', 'name')
+      .populate('ownerId', 'name email avatar');
+  }
+
   // ─── Get Sharing Info ───────────────────────────────────────────────
 
   async getSharingInfo(requesterId, habitId) {
@@ -385,6 +399,7 @@ class SharedHabitService {
     // Any member or owner can view
     const role = this._getRole(shared, requesterId);
     if (!role) {
+      console.warn(`[getSharingInfo] Access denied: user=${requesterId}, habitId=${habitId}, ownerId=${this._toId(shared.ownerId)}, members=${shared.sharedWith.map(m => ({ id: this._toId(m.userId), status: m.status }))}`);
       throw new AppError('You do not have access to this shared habit', 403);
     }
 
