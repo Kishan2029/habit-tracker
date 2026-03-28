@@ -11,6 +11,39 @@ import feedbackRoutes from './feedbackRoutes.js';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: OK
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     uptime:
+ *                       type: number
+ *                       description: Server uptime in seconds
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     environment:
+ *                       type: string
+ *                       example: development
+ */
 router.get('/health', (req, res) => {
   res.status(200).json({
     success: true,

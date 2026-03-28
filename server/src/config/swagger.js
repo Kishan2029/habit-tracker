@@ -83,6 +83,59 @@ const options = {
             updatedAt: { type: 'string', format: 'date-time' },
           },
         },
+        SharedHabit: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            habitId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            ownerId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            sharedWith: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  userId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                  role: { type: 'string', enum: ['admin', 'member', 'viewer'], example: 'member' },
+                  joinedAt: { type: 'string', format: 'date-time' },
+                  invitedBy: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                  status: { type: 'string', enum: ['pending', 'accepted', 'declined'], example: 'accepted' },
+                },
+              },
+            },
+            inviteCode: { type: 'string', example: 'abc123' },
+            isActive: { type: 'boolean', example: true },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        Feedback: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            userId: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            mood: { type: 'string', enum: ['loved', 'happy', 'neutral', 'confused', 'sad'], example: 'happy' },
+            message: { type: 'string', example: 'Great app!' },
+            page: { type: 'string', example: '/dashboard' },
+            status: { type: 'string', enum: ['open', 'reviewed', 'resolved'], example: 'open' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        PushSubscription: {
+          type: 'object',
+          properties: {
+            endpoint: { type: 'string', example: 'https://fcm.googleapis.com/fcm/send/...' },
+            keys: {
+              type: 'object',
+              properties: {
+                p256dh: { type: 'string' },
+                auth: { type: 'string' },
+              },
+              required: ['p256dh', 'auth'],
+            },
+          },
+          required: ['endpoint', 'keys'],
+        },
         Error: {
           type: 'object',
           properties: {
