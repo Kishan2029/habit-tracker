@@ -138,8 +138,8 @@ class EmailService {
     const html = `
       <h3 style="color: #111827; margin-top: 0;">You're Invited!</h3>
       <p style="color: #374151; line-height: 1.6;">
-        Hi ${inviteeName}, <strong>${inviterName}</strong> has invited you to join the shared habit
-        <strong>"${habitName}"</strong> on Habit Tracker.
+        Hi ${this._escapeHtml(inviteeName)}, <strong>${this._escapeHtml(inviterName)}</strong> has invited you to join the shared habit
+        <strong>"${this._escapeHtml(habitName)}"</strong> on Habit Tracker.
       </p>
       <p style="color: #374151; line-height: 1.6;">
         Track this habit together, stay accountable, and see each other's progress!
@@ -151,7 +151,46 @@ class EmailService {
         Or log into your account and check the Shared Habits page to accept the invite.
       </p>
     `;
-    await this._send(email, `${inviterName} invited you to "${habitName}" on Habit Tracker`, html, 'Habit invite');
+    await this._send(email, `${this._escapeHtml(inviterName)} invited you to "${this._escapeHtml(habitName)}" on Habit Tracker`, html, 'Habit invite');
+  }
+
+  // ─── Feedback Notification (to admin) ────────────────────────────────
+
+  async sendFeedbackNotification(userName, userEmail, mood, message, page) {
+    const adminEmail = env.adminEmail;
+    if (!adminEmail) {
+      console.log(`[Email Fallback] Feedback from ${userName} (${mood}): ${message || '(no message)'}`);
+      return;
+    }
+
+    const safeName = this._escapeHtml(userName);
+    const safeEmail = this._escapeHtml(userEmail);
+    const safePage = this._escapeHtml(page);
+    const safeMessage = this._escapeHtml(message);
+
+    const moodEmojis = { loved: '\u{1F60D}', happy: '\u{1F60A}', neutral: '\u{1F610}', confused: '\u{1F615}', sad: '\u{1F622}' };
+    const moodEmoji = moodEmojis[mood] || mood;
+
+    const html = `
+      <h3 style="color: #111827; margin-top: 0;">New Feedback Received</h3>
+      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+        <tr>
+          <td style="padding: 8px 12px; color: #6b7280; font-size: 14px; width: 80px;">From</td>
+          <td style="padding: 8px 12px; color: #374151; font-weight: 600;">${safeName} (${safeEmail})</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 12px; color: #6b7280; font-size: 14px;">Mood</td>
+          <td style="padding: 8px 12px; font-size: 20px;">${moodEmoji} ${mood}</td>
+        </tr>
+        ${page ? `<tr><td style="padding: 8px 12px; color: #6b7280; font-size: 14px;">Page</td><td style="padding: 8px 12px; color: #374151;">${safePage}</td></tr>` : ''}
+        ${message ? `<tr><td style="padding: 8px 12px; color: #6b7280; font-size: 14px; vertical-align: top;">Message</td><td style="padding: 8px 12px; color: #374151; line-height: 1.6;">${safeMessage}</td></tr>` : ''}
+      </table>
+      <p style="color: #9ca3af; font-size: 12px;">
+        Submitted at ${new Date().toUTCString()}
+      </p>
+    `;
+
+    await this._send(adminEmail, `Feedback: ${moodEmoji} from ${safeName}`, html, 'Feedback notification');
   }
 
   // ─── Password Changed (from Settings) ────────────────────────────────
