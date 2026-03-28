@@ -138,6 +138,7 @@ class SharedHabitService {
     });
     await shared.save();
 
+    cache.delByPrefix(`habits:${userId}`);
     return shared;
   }
 
@@ -218,6 +219,7 @@ class SharedHabitService {
     if (accept) member.joinedAt = new Date();
     await shared.save();
 
+    if (accept) cache.delByPrefix(`habits:${userId}`);
     return shared;
   }
 
@@ -247,6 +249,7 @@ class SharedHabitService {
     );
     await shared.save();
 
+    cache.delByPrefix(`habits:${targetUserId}`);
     return shared;
   }
 
@@ -268,6 +271,7 @@ class SharedHabitService {
     shared.sharedWith.splice(memberIndex, 1);
     await shared.save();
 
+    cache.delByPrefix(`habits:${userId}`);
     return { message: 'Left shared habit' };
   }
 
@@ -424,6 +428,12 @@ class SharedHabitService {
 
     if (this._toId(shared.ownerId) !== ownerId.toString()) {
       throw new AppError('Only the owner can unshare a habit', 403);
+    }
+
+    // Invalidate caches for all members before clearing
+    for (const member of shared.sharedWith) {
+      const memberId = this._toId(member.userId);
+      if (memberId) cache.delByPrefix(`habits:${memberId}`);
     }
 
     shared.isActive = false;

@@ -7,11 +7,13 @@ export default function MemberProgressList({ habitId, date, compact = false }) {
 
   useEffect(() => {
     if (!habitId || !date) return;
+    let cancelled = false;
     setLoading(true);
     getMembersProgress(habitId, date)
-      .then(({ data: res }) => setData(res.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+      .then(({ data: res }) => { if (!cancelled) setData(res.data); })
+      .catch(() => { if (!cancelled) setData(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [habitId, date]);
 
   if (loading) {

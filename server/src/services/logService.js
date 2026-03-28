@@ -315,6 +315,7 @@ class LogService {
 
     const logs = await HabitLog.find({
       userId,
+      habitId: { $in: allHabitIds },
       date: { $gte: startDate, $lte: endDate },
     });
 
