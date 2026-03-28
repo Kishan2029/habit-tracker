@@ -76,6 +76,10 @@ class HabitService {
 
     await habit.save();
     this._invalidateCache(userId);
+    // If a shared admin edited this, also invalidate the actual owner's cache
+    if (habit.userId.toString() !== userId.toString()) {
+      this._invalidateCache(habit.userId.toString());
+    }
     return habit;
   }
 

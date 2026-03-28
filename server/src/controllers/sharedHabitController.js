@@ -3,8 +3,10 @@ import { sendSuccess } from '../utils/responseFormatter.js';
 import sharedHabitService from '../services/sharedHabitService.js';
 
 export const shareHabit = catchAsync(async (req, res) => {
-  const shared = await sharedHabitService.shareHabit(req.user._id, req.body.habitId);
-  sendSuccess(res, { shared }, 'Habit shared', 201);
+  let shared = await sharedHabitService.shareHabit(req.user._id, req.body.habitId);
+  // Return populated data so the frontend has full user details
+  shared = await sharedHabitService._populateShared(shared);
+  sendSuccess(res, { shared, requesterRole: 'owner' }, 'Habit shared', 201);
 });
 
 export const joinByInviteCode = catchAsync(async (req, res) => {
@@ -14,8 +16,11 @@ export const joinByInviteCode = catchAsync(async (req, res) => {
 
 export const inviteMember = catchAsync(async (req, res) => {
   const { habitId, email, role } = req.body;
-  const shared = await sharedHabitService.inviteMember(req.user._id, habitId, email, role);
-  sendSuccess(res, { shared }, 'Invite sent');
+  const { shared, emailSent, emailError } = await sharedHabitService.inviteMember(req.user._id, habitId, email, role);
+  const message = emailSent
+    ? 'Invite sent via email'
+    : 'Member added to invite list (email notification could not be sent)';
+  sendSuccess(res, { shared, emailSent, emailError }, message);
 });
 
 export const respondToInvite = catchAsync(async (req, res) => {

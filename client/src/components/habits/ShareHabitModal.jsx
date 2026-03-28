@@ -57,14 +57,17 @@ export default function ShareHabitModal({ habit, onClose }) {
         try {
           const { data: res } = await shareHabit(habit._id);
           setSharingData(res.data.shared);
-          setRequesterRole('owner');
+          setRequesterRole(res.data.requesterRole || 'owner');
         } catch (shareErr) {
           toast.error('Failed to share habit');
           onClose();
+          return;
         }
       } else {
+        console.error('getSharingInfo error:', err.response?.status, err.response?.data);
         toast.error(err.response?.data?.message || 'Failed to load sharing info');
         onClose();
+        return;
       }
     } finally {
       setLoading(false);
@@ -94,8 +97,12 @@ export default function ShareHabitModal({ habit, onClose }) {
     if (!inviteEmail.trim()) return;
     setInviting(true);
     try {
-      await inviteMember(habit._id, inviteEmail, inviteRole);
-      toast.success('Invite sent');
+      const { data: res } = await inviteMember(habit._id, inviteEmail, inviteRole);
+      if (res.data.emailSent) {
+        toast.success('Invite sent via email');
+      } else {
+        toast.success('Member invited! Share the invite link — email could not be sent.');
+      }
       setInviteEmail('');
       fetchSharingInfo();
     } catch (err) {
