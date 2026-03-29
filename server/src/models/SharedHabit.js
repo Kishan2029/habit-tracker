@@ -1,27 +1,27 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const sharedHabitSchema = new mongoose.Schema(
   {
     habitId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Habit',
+      ref: "Habit",
       required: true,
     },
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     sharedWith: [
       {
         userId: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
+          ref: "User",
         },
         role: {
           type: String,
-          enum: ['admin', 'member', 'viewer'],
-          default: 'member',
+          enum: ["admin", "member", "viewer"],
+          default: "member",
         },
         joinedAt: {
           type: Date,
@@ -29,12 +29,12 @@ const sharedHabitSchema = new mongoose.Schema(
         },
         invitedBy: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
+          ref: "User",
         },
         status: {
           type: String,
-          enum: ['pending', 'accepted', 'declined'],
-          default: 'accepted',
+          enum: ["pending", "accepted", "declined"],
+          default: "accepted",
         },
       },
     ],
@@ -48,11 +48,11 @@ const sharedHabitSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 sharedHabitSchema.index({ habitId: 1 }, { unique: true });
 sharedHabitSchema.index({ ownerId: 1 });
-sharedHabitSchema.index({ 'sharedWith.userId': 1 });
+sharedHabitSchema.index({ "sharedWith.userId": 1 });
 
-export default mongoose.model('SharedHabit', sharedHabitSchema);
+export default mongoose.model("SharedHabit", sharedHabitSchema);
