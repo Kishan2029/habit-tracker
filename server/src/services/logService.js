@@ -219,20 +219,10 @@ class LogService {
       };
     });
 
-    // Map shared habits (compute per-user streaks)
-    const sharedResult = await Promise.all(sharedHabits.map(async (habit) => {
+    // Map shared habits (use pre-built per-user streak map)
+    const sharedResult = sharedHabits.map((habit) => {
       const log = logMap.get(habit._id.toString());
       const info = roleMap.get(habit._id.toString());
-      // Compute this user's personal streak for the shared habit
-      let userStreak;
-      try {
-        userStreak = await this.getUserStreakForHabit(userId, habit);
-      } catch {
-        userStreak = { currentStreak: 0, longestStreak: 0 };
-      }
-      const habitObj = habit.toObject();
-      habitObj.currentStreak = userStreak.currentStreak;
-      habitObj.longestStreak = userStreak.longestStreak;
       return {
         habit: this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString())),
         log: log || null,
@@ -245,7 +235,7 @@ class LogService {
         sharedBy: ownerMap.get(info?.ownerId) || 'Unknown',
         myRole: info?.role || 'viewer',
       };
-    }));
+    });
 
     const result = [...ownResult, ...sharedResult];
     const completedCount = result.filter((r) => r.isCompleted).length;
