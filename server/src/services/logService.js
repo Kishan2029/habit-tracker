@@ -300,33 +300,17 @@ class LogService {
       sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
     );
 
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+
     // Mark shared habits
     const markedSharedHabits = sharedHabits.map((h) => {
-      const obj = this._serializeHabit(h);
+      const obj = this._serializeHabit(h, sharedStreakMap.get(h._id.toString()));
       const info = roleMap.get(h._id.toString());
       obj.isShared = true;
       obj.sharedBy = ownerMap.get(info?.ownerId) || 'Unknown';
       obj.myRole = info?.role || 'viewer';
-      // Override with user's own streak
-      try {
-        const userStreak = await this.getUserStreakForHabit(userId, h);
-        obj.currentStreak = userStreak.currentStreak;
-        obj.longestStreak = userStreak.longestStreak;
-      } catch {
-        obj.currentStreak = 0;
-        obj.longestStreak = 0;
-      }
       return obj;
-    }));
-
-    // Find which of the owner's own habits are shared
-    const ownHabitIds = ownHabits.map((h) => h._id);
-    const ownSharedDocs = await SharedHabit.find({
-      habitId: { $in: ownHabitIds },
-      ownerId: userId,
-      isActive: true,
-    }).select('habitId');
-    const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
+    });
 
     const allHabits = [
       ...ownHabits.map((h) => ({ ...this._serializeHabit(h), isShared: false })),
