@@ -300,9 +300,9 @@ class LogService {
       sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
     );
 
-    // Mark shared habits
-    const markedSharedHabits = sharedHabits.map((h) => {
-      const obj = this._serializeHabit(h);
+    // Mark shared habits (compute per-user streaks)
+    const markedSharedHabits = await Promise.all(sharedHabits.map(async (h) => {
+      const obj = h.toObject();
       const info = roleMap.get(h._id.toString());
       obj.isShared = true;
       obj.sharedBy = ownerMap.get(info?.ownerId) || 'Unknown';
