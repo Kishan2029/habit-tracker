@@ -190,20 +190,25 @@ class SharedHabitService {
     // Send invite email (non-blocking — don't fail the invite if email fails)
     let emailSent = false;
     let emailError = null;
-    try {
-      const inviter = await User.findById(requesterId, 'name');
-      const habit = await Habit.findById(habitId, 'name');
-      await emailService.sendHabitInviteEmail(
-        targetUser.email,
-        targetUser.name,
-        inviter?.name || 'Someone',
-        habit?.name || 'a habit',
-        shared.inviteCode
-      );
-      emailSent = emailService.isConfigured; // only truly sent if SMTP is configured
-    } catch (emailErr) {
-      console.error('Failed to send invite email:', emailErr.message);
-      emailError = emailErr.message;
+
+    if (!emailService.isConfigured) {
+      emailError = 'Email service not configured (SMTP settings missing)';
+    } else {
+      try {
+        const inviter = await User.findById(requesterId, 'name');
+        const habit = await Habit.findById(habitId, 'name');
+        await emailService.sendHabitInviteEmail(
+          targetUser.email,
+          targetUser.name,
+          inviter?.name || 'Someone',
+          habit?.name || 'a habit',
+          shared.inviteCode
+        );
+        emailSent = true;
+      } catch (emailErr) {
+        console.error('Failed to send invite email:', emailErr.message);
+        emailError = emailErr.message;
+      }
     }
 
     return { shared, emailSent, emailError };

@@ -23,6 +23,30 @@ class HabitService {
       filter.category = category;
     }
     const habits = await Habit.find(filter).sort({ sortOrder: 1, createdAt: -1 }).lean();
+
+    // Enrich with sharing info
+    const habitIds = habits.map((h) => h._id);
+    const sharedDocs = await SharedHabit.find({
+      habitId: { $in: habitIds },
+      isActive: true,
+    }).select('habitId sharedWith').lean();
+
+    const sharedMap = new Map();
+    for (const doc of sharedDocs) {
+      const acceptedCount = doc.sharedWith.filter((m) => m.status === 'accepted').length;
+      sharedMap.set(doc.habitId.toString(), acceptedCount);
+    }
+
+    for (const habit of habits) {
+      const memberCount = sharedMap.get(habit._id.toString());
+      if (memberCount !== undefined) {
+        habit.isShared = true;
+        habit.memberCount = memberCount;
+      } else {
+        habit.isShared = false;
+      }
+    }
+
     cache.set(key, habits, 120);
     return habits;
   }

@@ -11,6 +11,7 @@ import LoadingSpinner from '../ui/LoadingSpinner';
 import { triggerConfetti, triggerMiniConfetti } from '../ui/ConfettiEffect';
 import SharedBadge from '../ui/SharedBadge';
 import MemberProgressList from '../shared/MemberProgressList';
+import ShareHabitModal from '../habits/ShareHabitModal';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDateString } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -21,6 +22,7 @@ export default function TodayView() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedHabit, setExpandedHabit] = useState(null);
+  const [sharedInfoHabit, setSharedInfoHabit] = useState(null); // { habit, myRole }
   const prevCompleted = useRef(0);
   const fetchIdRef = useRef(0); // tracks latest fetch to prevent race conditions
   const userLoggedRef = useRef(false); // true only after user actively logs a habit
@@ -128,20 +130,34 @@ export default function TodayView() {
                   <div className="flex items-center gap-2">
                     <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
                     {isShared && (
-                      <button
-                        onClick={() => toggleExpand(habit._id)}
-                        className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-0.5"
-                      >
-                        <span>👥</span>
-                        <svg
-                          className={`w-3 h-3 transition-transform ${expandedHabit === habit._id ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      <>
+                        <button
+                          onClick={() => toggleExpand(habit._id)}
+                          className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-0.5"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
+                          <span>👥</span>
+                          {expandedHabit !== habit._id && (
+                            <MemberProgressList habitId={habit._id} date={date} compact />
+                          )}
+                          <svg
+                            className={`w-3 h-3 transition-transform ${expandedHabit === habit._id ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setSharedInfoHabit({ habit, myRole })}
+                          className="text-xs text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition"
+                          title="View members & progress"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -177,6 +193,14 @@ export default function TodayView() {
           </Card>
         ))}
       </div>
+
+      {sharedInfoHabit && (
+        <ShareHabitModal
+          habit={sharedInfoHabit.habit}
+          isOwner={sharedInfoHabit.myRole === 'owner'}
+          onClose={() => setSharedInfoHabit(null)}
+        />
+      )}
     </div>
   );
 }

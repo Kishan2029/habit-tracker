@@ -9,6 +9,7 @@ import {
   regenerateInviteCode,
   unshareHabit,
   transferOwnership,
+  leaveHabit,
 } from '../../api/sharedHabitApi';
 import MemberProgressList from '../shared/MemberProgressList';
 import { getLocalDateString } from '../../utils/dateUtils';
@@ -19,7 +20,7 @@ const ROLE_DESCRIPTIONS = {
   viewer: 'Can view progress only (read-only)',
 };
 
-export default function ShareHabitModal({ habit, onClose }) {
+export default function ShareHabitModal({ habit, onClose, isOwner: isOwnerProp }) {
   const [tab, setTab] = useState('members');
   const [loading, setLoading] = useState(true);
   const [sharingData, setSharingData] = useState(null);
@@ -52,17 +53,21 @@ export default function ShareHabitModal({ habit, onClose }) {
       setSharingData(res.data.shared);
       setRequesterRole(res.data.requesterRole);
     } catch (err) {
-      if (err.response?.status === 404) {
-        // Not shared yet — create sharing
+      if (err.response?.status === 404 && isOwnerProp !== false) {
+        // Not shared yet — only the owner can create sharing
         try {
           const { data: res } = await shareHabit(habit._id);
           setSharingData(res.data.shared);
           setRequesterRole(res.data.requesterRole || 'owner');
         } catch (shareErr) {
-          toast.error('Failed to share habit');
+          toast.error(shareErr.response?.data?.message || 'Failed to share habit');
           onClose();
           return;
         }
+      } else if (err.response?.status === 404) {
+        toast.error('This habit is no longer shared');
+        onClose();
+        return;
       } else {
         console.error('getSharingInfo error:', err.response?.status, err.response?.data);
         toast.error(err.response?.data?.message || 'Failed to load sharing info');
@@ -101,7 +106,9 @@ export default function ShareHabitModal({ habit, onClose }) {
       if (res.data.emailSent) {
         toast.success('Invite sent via email');
       } else {
-        toast.success('Member invited! Share the invite link — email could not be sent.');
+        toast.success('Member added with pending invite. Share the invite link for them to join.', { duration: 5000 });
+        // Switch to invite tab so user can copy the link
+        if (canInvite) setTab('invite');
       }
       setInviteEmail('');
       fetchSharingInfo();
@@ -179,7 +186,9 @@ export default function ShareHabitModal({ habit, onClose }) {
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <span className="text-xl">{habit.icon}</span>
-            <h2 className="font-semibold text-gray-900 dark:text-white">Share "{habit.name}"</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white">
+              {requesterRole === 'owner' ? `Share "${habit.name}"` : habit.name}
+            </h2>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,6 +365,25 @@ export default function ShareHabitModal({ habit, onClose }) {
                     className="w-full py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                   >
                     Stop Sharing
+                  </button>
+                )}
+
+                {/* Leave button (non-owners) */}
+                {requesterRole && requesterRole !== 'owner' && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Leave this shared habit? You will lose access.')) return;
+                      try {
+                        await leaveHabit(habit._id);
+                        toast.success('Left shared habit');
+                        onClose();
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || 'Failed to leave');
+                      }
+                    }}
+                    className="w-full py-2 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                  >
+                    Leave Habit
                   </button>
                 )}
               </div>
