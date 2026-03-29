@@ -81,7 +81,6 @@ class LogService {
     const isOwner = habit.userId.toString() === userId.toString();
     if (!isOwner) {
       const role = await sharedHabitService.getUserRoleForHabit(userId, habitId);
-      console.log(`[Log] Shared habit auth: user=${userId}, habit=${habitId}, role=${role}`);
       if (!role) {
         throw new AppError('Not authorized to log this habit', 403);
       }
@@ -301,7 +300,7 @@ class LogService {
     );
 
     // Mark shared habits
-    const markedSharedHabits = sharedHabits.map((h) => {
+    const markedSharedHabits = await Promise.all(sharedHabits.map(async (h) => {
       const obj = this._serializeHabit(h);
       const info = roleMap.get(h._id.toString());
       obj.isShared = true;

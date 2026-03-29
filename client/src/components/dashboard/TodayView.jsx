@@ -136,9 +136,6 @@ export default function TodayView() {
                           className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-0.5"
                         >
                           <span>👥</span>
-                          {expandedHabit !== habit._id && (
-                            <MemberProgressList habitId={habit._id} date={date} compact />
-                          )}
                           <svg
                             className={`w-3 h-3 transition-transform ${expandedHabit === habit._id ? 'rotate-180' : ''}`}
                             fill="none"

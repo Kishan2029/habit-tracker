@@ -119,6 +119,7 @@ class SharedHabitService {
         alreadyJoined.status = 'accepted';
         alreadyJoined.joinedAt = new Date();
         await shared.save();
+        cache.delByPrefix(`habits:${userId}`);
         return shared;
       }
       if (alreadyJoined.status === 'declined') {
@@ -127,6 +128,7 @@ class SharedHabitService {
         alreadyJoined.role = 'member';
         alreadyJoined.joinedAt = new Date();
         await shared.save();
+        cache.delByPrefix(`habits:${userId}`);
         return shared;
       }
     }
@@ -303,6 +305,7 @@ class SharedHabitService {
     member.role = newRole;
     await shared.save();
 
+    cache.delByPrefix(`habits:${targetUserId}`);
     return shared;
   }
 
@@ -408,7 +411,6 @@ class SharedHabitService {
     // Any member or owner can view
     const role = this._getRole(shared, requesterId);
     if (!role) {
-      console.warn(`[getSharingInfo] Access denied: user=${requesterId}, habitId=${habitId}, ownerId=${this._toId(shared.ownerId)}, members=${shared.sharedWith.map(m => ({ id: this._toId(m.userId), status: m.status }))}`);
       throw new AppError('You do not have access to this shared habit', 403);
     }
 
@@ -471,7 +473,6 @@ class SharedHabitService {
     const shared = await SharedHabit.findOne({ habitId: hid, isActive: true });
 
     if (!shared) {
-      console.log(`[SharedHabit] No active SharedHabit found for habitId=${habitId}`);
       return null;
     }
 
@@ -481,11 +482,6 @@ class SharedHabitService {
     const member = shared.sharedWith.find(
       (m) => m.userId.toString() === uid && m.status === 'accepted'
     );
-    if (!member) {
-      console.log(`[SharedHabit] User ${uid} not found in sharedWith for habit ${habitId}. Members:`,
-        shared.sharedWith.map(m => ({ uid: m.userId.toString(), status: m.status, role: m.role }))
-      );
-    }
     return member ? member.role : null;
   }
 
