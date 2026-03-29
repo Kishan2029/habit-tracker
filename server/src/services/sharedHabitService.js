@@ -123,9 +123,8 @@ class SharedHabitService {
         return shared;
       }
       if (alreadyJoined.status === 'declined') {
-        // Allow re-joining — reset role to default 'member'
+        // Allow re-joining without rewriting the previously assigned role.
         alreadyJoined.status = 'accepted';
-        alreadyJoined.role = 'member';
         alreadyJoined.joinedAt = new Date();
         await shared.save();
         cache.delByPrefix(`habits:${userId}`);

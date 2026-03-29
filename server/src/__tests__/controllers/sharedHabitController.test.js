@@ -16,6 +16,8 @@ jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
     getSharingInfo: jest.fn(),
     regenerateInviteCode: jest.fn(),
     unshareHabit: jest.fn(),
+    getHabitsSharedByUser: jest.fn(),
+    getInvitePreview: jest.fn(),
   },
 }));
 
@@ -30,8 +32,10 @@ const {
   updateMemberRole,
   transferOwnership,
   getSharedWithMe,
+  getSharedByMe,
   getPendingInvites,
   getSharingInfo,
+  getInvitePreview,
   regenerateInviteCode,
   unshareHabit,
 } = await import('../../controllers/sharedHabitController.js');
@@ -235,6 +239,42 @@ describe('SharedHabitController', () => {
         expect.objectContaining({
           data: { invites: mockInvites },
           message: 'Pending invites retrieved',
+        })
+      );
+    });
+  });
+
+  describe('getSharedByMe', () => {
+    it('should return habits shared by the current user', async () => {
+      const mockHabits = [{ _id: 'sh1' }];
+      sharedHabitService.getHabitsSharedByUser.mockResolvedValue(mockHabits);
+
+      const req = { user: { _id: 'u1' } };
+      await getSharedByMe(req, res, next);
+
+      expect(sharedHabitService.getHabitsSharedByUser).toHaveBeenCalledWith('u1');
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { sharedHabits: mockHabits },
+          message: 'Shared by me retrieved',
+        })
+      );
+    });
+  });
+
+  describe('getInvitePreview', () => {
+    it('should return the invite preview payload', async () => {
+      const mockPreview = { habitName: 'Exercise' };
+      sharedHabitService.getInvitePreview.mockResolvedValue(mockPreview);
+
+      const req = { params: { inviteCode: 'code123' } };
+      await getInvitePreview(req, res, next);
+
+      expect(sharedHabitService.getInvitePreview).toHaveBeenCalledWith('code123');
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { preview: mockPreview },
+          message: 'Invite preview retrieved',
         })
       );
     });
