@@ -11,10 +11,12 @@ import {
   updateMemberRole,
   transferOwnership,
   getSharedWithMe,
+  getSharedByMe,
   getPendingInvites,
   getSharingInfo,
   regenerateInviteCode,
   unshareHabit,
+  getInvitePreview,
 } from '../controllers/sharedHabitController.js';
 import {
   shareHabitRules,
@@ -28,6 +30,9 @@ import {
 } from '../validators/sharedHabitValidators.js';
 
 const router = Router();
+
+// Public route — no auth needed (for invite link previews before login)
+router.get('/preview/:inviteCode', getInvitePreview);
 
 router.use(authenticate);
 
@@ -308,6 +313,20 @@ router.get('/with-me', getSharedWithMe);
  *                         $ref: '#/components/schemas/SharedHabit'
  */
 router.get('/pending', getPendingInvites);
+
+/**
+ * @swagger
+ * /shared/by-me:
+ *   get:
+ *     summary: Get habits shared by the current user (owner view)
+ *     tags: [Shared Habits]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Shared habits by user retrieved
+ */
+router.get('/by-me', getSharedByMe);
 
 /**
  * @swagger

@@ -485,6 +485,47 @@ class SharedHabitService {
     return member ? member.role : null;
   }
 
+  // ─── Get Habits Shared BY User (owner view) ────────────────────────
+
+  async getHabitsSharedByUser(ownerId) {
+    const sharedHabits = await SharedHabit.find({
+      ownerId,
+      isActive: true,
+    })
+      .populate({
+        path: 'habitId',
+        select: 'name icon color type unit target frequency category isArchived',
+        match: { isArchived: false },
+      })
+      .populate('sharedWith.userId', 'name email avatar');
+
+    // Filter out entries where the habit was archived (populated as null)
+    return sharedHabits.filter((sh) => sh.habitId != null);
+  }
+
+  // ─── Get Invite Preview (public — no auth needed) ─────────────────
+
+  async getInvitePreview(inviteCode) {
+    const shared = await SharedHabit.findOne({ inviteCode, isActive: true })
+      .populate('habitId', 'name icon color type')
+      .populate('ownerId', 'name');
+
+    if (!shared || !shared.habitId) {
+      throw new AppError('Invalid or expired invite link', 404);
+    }
+
+    const acceptedCount = shared.sharedWith.filter((m) => m.status === 'accepted').length;
+
+    return {
+      habitName: shared.habitId.name,
+      habitIcon: shared.habitId.icon,
+      habitColor: shared.habitId.color,
+      habitType: shared.habitId.type,
+      ownerName: shared.ownerId?.name || 'Unknown',
+      memberCount: acceptedCount + 1, // +1 for owner
+    };
+  }
+
   // ─── Get habits shared with a user that are scheduled for a given day ─
 
   async getSharedHabitIdsForUser(userId) {

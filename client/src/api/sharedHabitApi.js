@@ -27,6 +27,12 @@ export const transferOwnership = (habitId, newOwnerId) =>
 export const getSharedWithMe = () =>
   api.get('/shared/with-me');
 
+export const getSharedByMe = () =>
+  api.get('/shared/by-me');
+
+export const getInvitePreview = (inviteCode) =>
+  api.get(`/shared/preview/${inviteCode}`);
+
 export const getPendingInvites = () =>
   api.get('/shared/pending');
 

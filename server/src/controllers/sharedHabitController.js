@@ -87,3 +87,13 @@ export const unshareHabit = catchAsync(async (req, res) => {
   const result = await sharedHabitService.unshareHabit(req.user._id, req.params.habitId);
   sendSuccess(res, result, 'Habit unshared');
 });
+
+export const getSharedByMe = catchAsync(async (req, res) => {
+  const sharedHabits = await sharedHabitService.getHabitsSharedByUser(req.user._id);
+  sendSuccess(res, { sharedHabits }, 'Shared by me retrieved');
+});
+
+export const getInvitePreview = catchAsync(async (req, res) => {
+  const preview = await sharedHabitService.getInvitePreview(req.params.inviteCode);
+  sendSuccess(res, { preview }, 'Invite preview retrieved');
+});
