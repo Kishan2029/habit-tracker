@@ -90,8 +90,8 @@ export default function SharedHabitsPage() {
             Pending Invites ({pendingInvites.length})
           </h2>
           <div className="space-y-3">
-            {pendingInvites.map((invite) => (
-              <Card key={invite.habitId?._id} className="p-4">
+            {pendingInvites.filter((invite) => invite.habitId).map((invite) => (
+              <Card key={invite.habitId._id} className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
@@ -194,7 +194,7 @@ export default function SharedHabitsPage() {
               const habit = sh.habitId;
               const owner = sh.ownerId;
               const myMembership = sh.sharedWith?.find(
-                (m) => (m.userId?._id || m.userId) === user?._id && m.status === 'accepted'
+                (m) => String(m.userId?._id || m.userId) === String(user?._id) && m.status === 'accepted'
               );
               const acceptedCount = (sh.sharedWith?.filter((m) => m.status === 'accepted').length || 0) + 1;
               return (
