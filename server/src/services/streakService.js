@@ -1,4 +1,9 @@
-import { toDateString, addDays, getTodayUTC, getDayOfWeek } from '../utils/dateHelpers.js';
+import {
+  toDateString,
+  addDays,
+  getTodayUTC,
+  getDayOfWeek,
+} from "../utils/dateHelpers.js";
 
 class StreakService {
   calculateStreaks(logs, frequency, target, habitCreatedAt) {
@@ -6,16 +11,28 @@ class StreakService {
 
     for (const log of logs) {
       const isCompleted =
-        typeof log.value === 'boolean' ? log.value === true : log.value >= target;
+        typeof log.value === "boolean"
+          ? log.value === true
+          : log.value >= target;
       if (isCompleted) {
         completedSet.add(toDateString(log.date));
       }
     }
 
     const today = getTodayUTC();
-    const startDate = new Date(habitCreatedAt);
-    // Normalize to UTC midnight so creation time-of-day doesn't affect streak calc
-    startDate.setUTCHours(0, 0, 0, 0);
+    const creationDate = new Date(habitCreatedAt);
+    creationDate.setUTCHours(0, 0, 0, 0);
+
+    // Use the earliest log date if it's before creation (handles backdated logs)
+    let startDate = new Date(creationDate);
+    if (logs.length > 0) {
+      const earliestLog = new Date(logs[0].date); // logs are sorted by date asc
+      earliestLog.setUTCHours(0, 0, 0, 0);
+      if (earliestLog < startDate) {
+        startDate = earliestLog;
+      }
+    }
+
     // Don't go beyond today
     if (startDate > today) {
       return { currentStreak: 0, longestStreak: 0 };
@@ -56,7 +73,11 @@ class StreakService {
     let currentStreak = 0;
     let startIdx = scheduledDates.length - 1;
     const todayStr = toDateString(today);
-    if (startIdx >= 0 && scheduledDates[startIdx] === todayStr && !completedSet.has(todayStr)) {
+    if (
+      startIdx >= 0 &&
+      scheduledDates[startIdx] === todayStr &&
+      !completedSet.has(todayStr)
+    ) {
       startIdx--;
     }
     for (let i = startIdx; i >= 0; i--) {
