@@ -274,7 +274,7 @@ describe('SharedHabitService', () => {
       await sharedHabitService.joinByInviteCode('u2', 'abc123');
 
       expect(declinedMember.status).toBe('accepted');
-      expect(declinedMember.role).toBe('member');
+      expect(declinedMember.role).toBe('viewer');
       expect(shared.save).toHaveBeenCalled();
     });
 
@@ -804,6 +804,27 @@ describe('SharedHabitService', () => {
     });
   });
 
+  // ─── getHabitsSharedByUser ───────────────────────────────────────
+
+  describe('getHabitsSharedByUser', () => {
+    it('should return active shared habits owned by the user', async () => {
+      const sharedHabits = [
+        { _id: 'sh1', habitId: { name: 'Exercise' }, sharedWith: [] },
+        { _id: 'sh2', habitId: null, sharedWith: [] },
+      ];
+      SharedHabit.find.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(sharedHabits),
+        }),
+      });
+
+      const result = await sharedHabitService.getHabitsSharedByUser('owner1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]._id).toBe('sh1');
+    });
+  });
+
   // ─── getPendingInvites ──────────────────────────────────────────
 
   describe('getPendingInvites', () => {
@@ -830,6 +851,50 @@ describe('SharedHabitService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].role).toBe('member');
+    });
+  });
+
+  // ─── getInvitePreview ────────────────────────────────────────────
+
+  describe('getInvitePreview', () => {
+    it('should throw 404 for an invalid or expired invite link', async () => {
+      SharedHabit.findOne.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await expect(sharedHabitService.getInvitePreview('bad-code')).rejects.toMatchObject({
+        message: 'Invalid or expired invite link',
+        statusCode: 404,
+      });
+    });
+
+    it('should return a public preview for a valid invite link', async () => {
+      const shared = createMockShared({
+        habitId: { name: 'Exercise', icon: 'E', color: '#123456', type: 'boolean' },
+        ownerId: { name: 'Owner Name' },
+        sharedWith: [
+          { status: 'accepted' },
+          { status: 'pending' },
+        ],
+      });
+      SharedHabit.findOne.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(shared),
+        }),
+      });
+
+      const result = await sharedHabitService.getInvitePreview('abc123');
+
+      expect(result).toEqual({
+        habitName: 'Exercise',
+        habitIcon: 'E',
+        habitColor: '#123456',
+        habitType: 'boolean',
+        ownerName: 'Owner Name',
+        memberCount: 2,
+      });
     });
   });
 

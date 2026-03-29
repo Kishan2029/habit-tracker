@@ -29,8 +29,8 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/join/:inviteCode" element={<JoinSharedHabit />} />
               <Route element={<ProtectedRoute />}>
-                <Route path="/join/:inviteCode" element={<JoinSharedHabit />} />
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Navigate to="/today" replace />} />
                   <Route path="/today" element={<TodayView />} />

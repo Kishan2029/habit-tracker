@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { joinByInviteCode, getInvitePreview } from '../../api/sharedHabitApi';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../ui/Card';
 import toast from 'react-hot-toast';
 
 export default function JoinSharedHabit() {
   const { inviteCode } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(true);
   const [preview, setPreview] = useState(null);
@@ -31,6 +33,11 @@ export default function JoinSharedHabit() {
   };
 
   const handleJoin = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: `/join/${inviteCode}` } });
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -42,7 +49,7 @@ export default function JoinSharedHabit() {
       const message = err.response?.data?.message || 'Failed to join';
       if (message.includes('already joined')) {
         toast.success('You have already joined this habit');
-        navigate('/today');
+        window.location.href = '/today';
       } else {
         setError(message);
       }
@@ -68,10 +75,10 @@ export default function JoinSharedHabit() {
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
             <button
-              onClick={() => navigate('/today')}
+              onClick={() => navigate(user ? '/today' : '/login')}
               className="w-full py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition"
             >
-              Go to Today
+              {user ? 'Go to Today' : 'Go to Login'}
             </button>
           </div>
         ) : preview ? (
@@ -108,14 +115,14 @@ export default function JoinSharedHabit() {
               disabled={loading}
               className="w-full py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 transition"
             >
-              {loading ? 'Joining...' : 'Join Habit'}
+              {loading ? 'Joining...' : user ? 'Join Habit' : 'Sign in to Join'}
             </button>
 
             <button
-              onClick={() => navigate('/today')}
+              onClick={() => navigate(user ? '/today' : '/login')}
               className="mt-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
             >
-              Go back to Today
+              {user ? 'Go back to Today' : 'Go to Login'}
             </button>
           </div>
         ) : null}
