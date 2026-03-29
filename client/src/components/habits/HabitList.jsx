@@ -81,7 +81,7 @@ export default function HabitList() {
       }
       fetchHabits();
     } catch (err) {
-      toast.error('Failed to update habit');
+      toast.error(err.response?.data?.message || 'Failed to update habit');
     }
   };
 
@@ -94,7 +94,7 @@ export default function HabitList() {
       toast.success('Habit deleted!');
       fetchHabits();
     } catch (err) {
-      toast.error('Failed to delete habit');
+      toast.error(err.response?.data?.message || 'Failed to delete habit');
     }
   };
 
@@ -222,6 +222,7 @@ export default function HabitList() {
       {sharingHabit && (
         <ShareHabitModal
           habit={sharingHabit}
+          isOwner={true}
           onClose={() => setSharingHabit(null)}
         />
       )}

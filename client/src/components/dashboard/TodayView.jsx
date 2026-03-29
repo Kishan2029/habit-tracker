@@ -125,7 +125,7 @@ export default function TodayView() {
                     }`}>
                       {habit.name}
                     </h3>
-                    {isShared && <SharedBadge sharedBy={sharedBy} />}
+                    {isShared && <SharedBadge sharedBy={sharedBy} isOwner={myRole === 'owner'} />}
                   </div>
                   <div className="flex items-center gap-2">
                     <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
