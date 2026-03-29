@@ -88,7 +88,7 @@ class SharedHabitService {
     } catch (err) {
       // Handle race condition: another request created it first
       if (err.code === 11000) {
-        shared = await SharedHabit.findOne({ habitId });
+        shared = await SharedHabit.findOne({ habitId, isActive: true });
         if (shared) return shared;
       }
       throw err;
