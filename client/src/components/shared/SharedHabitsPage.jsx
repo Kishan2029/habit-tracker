@@ -91,7 +91,7 @@ export default function SharedHabitsPage() {
           </h2>
           <div className="space-y-3">
             {pendingInvites.filter((invite) => invite.habitId).map((invite) => (
-              <Card key={invite.habitId._id} className="p-4">
+              <Card key={invite.habitId?._id || invite._id} className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div

@@ -147,59 +147,59 @@ class LogService {
   async getDailyLogs(userId, dateString) {
     const date = toUTCMidnight(dateString);
     const dayOfWeek = getDayOfWeek(date);
-    const logs = await HabitLog.find({ userId, date });
+
+    // Phase 1: Parallel — fetch logs, own habits, and shared entries simultaneously
+    const [logs, sharedEntries] = await Promise.all([
+      HabitLog.find({ userId, date }),
+      sharedHabitService.getSharedHabitIdsForUser(userId),
+    ]);
+
     const loggedHabitIds = this._getLoggedHabitIds(logs);
-
-    // Fetch user's own habits
-    const ownHabits = await Habit.find({
-      userId,
-      $or: [
-        { isArchived: false, frequency: { $in: [dayOfWeek] } },
-        { _id: { $in: loggedHabitIds } },
-      ],
-    }).sort({ sortOrder: 1, createdAt: -1 });
-
-    // Fetch shared habits the user is part of
-    const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
     const sharedHabitIds = sharedEntries.map((e) => e.habitId);
+    const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
 
-    let sharedHabits = [];
-    if (sharedHabitIds.length > 0) {
-      sharedHabits = await Habit.find({
-        _id: { $in: sharedHabitIds },
+    // Phase 2: Parallel — fetch own habits, shared habits, owner names, and own shared docs
+    const [ownHabits, sharedHabits, owners] = await Promise.all([
+      Habit.find({
+        userId,
         $or: [
           { isArchived: false, frequency: { $in: [dayOfWeek] } },
           { _id: { $in: loggedHabitIds } },
         ],
-      }).sort({ createdAt: -1 });
-    }
+      }).sort({ sortOrder: 1, createdAt: -1 }),
+      sharedHabitIds.length > 0
+        ? Habit.find({
+            _id: { $in: sharedHabitIds },
+            $or: [
+              { isArchived: false, frequency: { $in: [dayOfWeek] } },
+              { _id: { $in: loggedHabitIds } },
+            ],
+          }).sort({ createdAt: -1 })
+        : [],
+      ownerIds.length > 0
+        ? User.find({ _id: { $in: ownerIds } }, 'name')
+        : [],
+    ]);
 
-    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+    // Phase 3: Parallel — streaks and own shared docs (both depend on Phase 2 results)
+    const ownHabitIds = ownHabits.map((h) => h._id);
+    const [sharedStreakMap, ownSharedDocs] = await Promise.all([
+      this._buildSharedStreakMap(userId, sharedHabits),
+      SharedHabit.find({
+        habitId: { $in: ownHabitIds },
+        ownerId: userId,
+        isActive: true,
+      }).select('habitId'),
+    ]);
 
-    // Fetch owner names for shared habits
-    const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
-    const owners = ownerIds.length > 0
-      ? await User.find({ _id: { $in: ownerIds } }, 'name')
-      : [];
     const ownerMap = new Map(owners.map((o) => [o._id.toString(), o.name]));
-
-    // Build role map for shared habits
     const roleMap = new Map(
       sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
     );
-
     const logMap = new Map();
     for (const log of logs) {
       logMap.set(log.habitId.toString(), log);
     }
-
-    // Find which of the owner's own habits are shared
-    const ownHabitIds = ownHabits.map((h) => h._id);
-    const ownSharedDocs = await SharedHabit.find({
-      habitId: { $in: ownHabitIds },
-      ownerId: userId,
-      isActive: true,
-    }).select('habitId');
     const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
 
     // Map own habits (mark shared ones)
