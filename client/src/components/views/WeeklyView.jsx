@@ -52,7 +52,7 @@ export default function WeeklyView() {
     fetchData();
   }, [fetchData]);
 
-  const handleToggle = async (habitId, dateStr, currentValue, habit, delta = 1) => {
+  const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit, delta = 1) => {
     // Block viewers from logging shared habits
     if (habit.isShared && habit.myRole === 'viewer') {
       toast.error('Viewers cannot log shared habits');
@@ -71,7 +71,7 @@ export default function WeeklyView() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  };
+  }, [fetchData]);
 
   const goToPrevWeek = () => setWeekStart(shiftDate(weekStart, -7));
   const goToNextWeek = () => setWeekStart(shiftDate(weekStart, 7));

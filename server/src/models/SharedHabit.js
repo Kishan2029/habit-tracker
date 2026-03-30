@@ -54,5 +54,6 @@ const sharedHabitSchema = new mongoose.Schema(
 sharedHabitSchema.index({ habitId: 1 }, { unique: true });
 sharedHabitSchema.index({ ownerId: 1 });
 sharedHabitSchema.index({ "sharedWith.userId": 1 });
+sharedHabitSchema.index({ inviteCode: 1, isActive: 1 });
 
 export default mongoose.model("SharedHabit", sharedHabitSchema);
