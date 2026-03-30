@@ -207,7 +207,7 @@ class SharedHabitService {
         );
         emailSent = true;
       } catch (emailErr) {
-        console.error('Failed to send invite email:', emailErr.message);
+        console.error('Failed to send invite email:', emailErr.message, emailErr.stack);
         emailError = emailErr.message;
       }
     }

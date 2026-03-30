@@ -193,6 +193,7 @@ export default function SharedHabitsPage() {
             {sharedWithMe.map((sh) => {
               const habit = sh.habitId;
               const owner = sh.ownerId;
+              const myUserId = user?._id?.toString?.() || user?._id;
               const myMembership = sh.sharedWith?.find(
                 (m) => String(m.userId?._id || m.userId) === String(user?._id) && m.status === 'accepted'
               );

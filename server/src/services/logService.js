@@ -223,8 +223,9 @@ class LogService {
     const sharedResult = sharedHabits.map((habit) => {
       const log = logMap.get(habit._id.toString());
       const info = roleMap.get(habit._id.toString());
+      const userStreak = sharedStreakMap.get(habit._id.toString());
       return {
-        habit: this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString())),
+        habit: this._serializeHabit(habit, userStreak),
         log: log || null,
         isCompleted: log
           ? typeof log.value === 'boolean'
@@ -291,6 +292,15 @@ class LogService {
 
     const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
 
+    // Find which of the owner's own habits are shared
+    const ownHabitIds = ownHabits.map((h) => h._id);
+    const ownSharedDocs = await SharedHabit.find({
+      habitId: { $in: ownHabitIds },
+      ownerId: userId,
+      isActive: true,
+    }).select('habitId');
+    const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
+
     // Mark shared habits
     const markedSharedHabits = sharedHabits.map((h) => {
       const obj = this._serializeHabit(h, sharedStreakMap.get(h._id.toString()));
@@ -302,7 +312,13 @@ class LogService {
     });
 
     const allHabits = [
-      ...ownHabits.map((h) => ({ ...this._serializeHabit(h), isShared: false })),
+      ...ownHabits.map((h) => {
+        const obj = { ...this._serializeHabit(h) };
+        const habitIsShared = ownSharedSet.has(h._id.toString());
+        obj.isShared = habitIsShared;
+        if (habitIsShared) obj.myRole = 'owner';
+        return obj;
+      }),
       ...markedSharedHabits,
     ];
 
@@ -334,10 +350,44 @@ class LogService {
       });
     }
 
+    // Build owner map and role map for shared habits
+    const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
+    const owners = ownerIds.length > 0
+      ? await User.find({ _id: { $in: ownerIds } }, 'name')
+      : [];
+    const ownerMap = new Map(owners.map((o) => [o._id.toString(), o.name]));
+    const roleMap = new Map(
+      sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
+    );
+
+    // Find which of the owner's own habits are shared
+    const ownHabitIds = ownHabits.map((h) => h._id);
+    const ownSharedDocs = await SharedHabit.find({
+      habitId: { $in: ownHabitIds },
+      ownerId: userId,
+      isActive: true,
+    }).select('habitId');
+    const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
+
     const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
     const habits = [
-      ...ownHabits.map((habit) => this._serializeHabit(habit)),
-      ...sharedHabits.map((habit) => this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString()))),
+      ...ownHabits.map((habit) => {
+        const h = this._serializeHabit(habit);
+        const habitIsShared = ownSharedSet.has(habit._id.toString());
+        if (habitIsShared) {
+          h.isShared = true;
+          h.myRole = 'owner';
+        }
+        return h;
+      }),
+      ...sharedHabits.map((habit) => {
+        const info = roleMap.get(habit._id.toString());
+        const h = this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString()));
+        h.isShared = true;
+        h.sharedBy = ownerMap.get(info?.ownerId) || 'Unknown';
+        h.myRole = info?.role || 'viewer';
+        return h;
+      }),
     ];
 
     return { month, year, habits, logs };
@@ -368,10 +418,44 @@ class LogService {
       });
     }
 
+    // Build owner map and role map for shared habits
+    const ownerIds = [...new Set(sharedEntries.map((e) => e.ownerId.toString()))];
+    const owners = ownerIds.length > 0
+      ? await User.find({ _id: { $in: ownerIds } }, 'name')
+      : [];
+    const ownerMap = new Map(owners.map((o) => [o._id.toString(), o.name]));
+    const roleMap = new Map(
+      sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
+    );
+
+    // Find which of the owner's own habits are shared
+    const ownHabitIds = ownHabits.map((h) => h._id);
+    const ownSharedDocs = await SharedHabit.find({
+      habitId: { $in: ownHabitIds },
+      ownerId: userId,
+      isActive: true,
+    }).select('habitId');
+    const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
+
     const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
     const habits = [
-      ...ownHabits.map((habit) => this._serializeHabit(habit)),
-      ...sharedHabits.map((habit) => this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString()))),
+      ...ownHabits.map((habit) => {
+        const h = this._serializeHabit(habit);
+        const habitIsShared = ownSharedSet.has(habit._id.toString());
+        if (habitIsShared) {
+          h.isShared = true;
+          h.myRole = 'owner';
+        }
+        return h;
+      }),
+      ...sharedHabits.map((habit) => {
+        const info = roleMap.get(habit._id.toString());
+        const h = this._serializeHabit(habit, sharedStreakMap.get(habit._id.toString()));
+        h.isShared = true;
+        h.sharedBy = ownerMap.get(info?.ownerId) || 'Unknown';
+        h.myRole = info?.role || 'viewer';
+        return h;
+      }),
     ];
     const allHabitIds = habits.map((h) => h._id);
 
