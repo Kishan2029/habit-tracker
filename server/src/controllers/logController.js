@@ -1,6 +1,7 @@
 import catchAsync from '../utils/catchAsync.js';
 import { sendSuccess } from '../utils/responseFormatter.js';
 import logService from '../services/logService.js';
+import AppError from '../utils/AppError.js';
 
 export const createOrUpdateLog = catchAsync(async (req, res) => {
   const { log, isNew } = await logService.createOrUpdate(req.user._id, req.body);
@@ -15,12 +16,14 @@ export const getDailyLogs = catchAsync(async (req, res) => {
 export const getMonthlyLogs = catchAsync(async (req, res) => {
   const month = parseInt(req.query.month, 10);
   const year = parseInt(req.query.year, 10);
+  if (isNaN(month) || isNaN(year)) throw new AppError('Valid month and year are required', 400);
   const data = await logService.getMonthlyLogs(req.user._id, month, year);
   sendSuccess(res, data, 'Monthly logs retrieved');
 });
 
 export const getYearlyLogs = catchAsync(async (req, res) => {
   const year = parseInt(req.query.year, 10);
+  if (isNaN(year)) throw new AppError('Valid year is required', 400);
   const data = await logService.getYearlyLogs(req.user._id, year);
   sendSuccess(res, data, 'Yearly logs retrieved');
 });
@@ -28,4 +31,11 @@ export const getYearlyLogs = catchAsync(async (req, res) => {
 export const getRangeLogs = catchAsync(async (req, res) => {
   const data = await logService.getRangeLogs(req.user._id, req.query.start, req.query.end);
   sendSuccess(res, data, 'Range logs retrieved');
+});
+
+export const getMembersProgress = catchAsync(async (req, res) => {
+  const date = req.query.date;
+  if (!date) throw new AppError('date query parameter is required', 400);
+  const data = await logService.getMembersProgress(req.user._id, req.params.habitId, date);
+  sendSuccess(res, data, 'Members progress retrieved');
 });

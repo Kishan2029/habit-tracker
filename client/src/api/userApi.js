@@ -8,3 +8,5 @@ export const uploadAvatar = (formData) =>
   api.put('/users/profile/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+
+export const changePassword = (data) => api.put('/users/change-password', data);

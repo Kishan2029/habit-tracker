@@ -1,4 +1,5 @@
 import Card from '../ui/Card';
+import { parseLocalDate } from '../../utils/dateUtils';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -15,17 +16,17 @@ export default function AnalyticsInsights({ habits, logs }) {
   // Best day of week
   const dayStats = Array(7).fill(null).map(() => ({ completed: 0, scheduled: 0 }));
   const uniqueDates = [...new Set(logs.map((l) => {
-    return typeof l.date === 'string' ? l.date.slice(0, 10) : new Date(l.date).toISOString().split('T')[0];
+    return typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
   }))];
 
   for (const dateStr of uniqueDates) {
-    const d = new Date(dateStr + 'T00:00:00Z');
-    const dow = d.getUTCDay();
+    const d = parseLocalDate(dateStr);
+    const dow = d.getDay();
     for (const habit of habits) {
       if (!habit.frequency.includes(dow)) continue;
       dayStats[dow].scheduled++;
       const log = logs.find((l) => {
-        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : new Date(l.date).toISOString().split('T')[0];
+        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
         return logDate === dateStr && l.habitId === habit._id;
       });
       if (log) {
@@ -76,8 +77,8 @@ export default function AnalyticsInsights({ habits, logs }) {
     <Card className="p-4">
       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Insights</h4>
       <div className="space-y-3">
-        {insights.map((insight, i) => (
-          <div key={i} className="flex items-start gap-3">
+        {insights.map((insight) => (
+          <div key={insight.label} className="flex items-start gap-3">
             <span className="text-lg shrink-0">{insight.icon}</span>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">{insight.label}</p>

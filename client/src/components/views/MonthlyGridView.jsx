@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
@@ -27,22 +27,29 @@ export default function MonthlyGridView() {
   const [selectedHabit, setSelectedHabit] = useState('');
   const navigate = useNavigate();
   const today = getLocalDateString();
+  const fetchIdRef = useRef(0);
 
   const { start, end, lastDay } = getMonthBounds(year, month);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    const fetchId = ++fetchIdRef.current;
     try {
       const { data: res } = await getRangeLogs(start, end);
+      if (fetchId !== fetchIdRef.current) return;
       setData(res.data);
       if (!selectedHabit && res.data.habits.length > 0) {
         setSelectedHabit(res.data.habits[0]._id);
       }
     } catch {
+      if (fetchId !== fetchIdRef.current) return;
       toast.error('Failed to load monthly data');
     } finally {
-      setLoading(false);
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [start, end]);
 
   useEffect(() => {
@@ -50,12 +57,17 @@ export default function MonthlyGridView() {
   }, [fetchData]);
 
   const handleToggle = async (habitId, dateStr, currentValue, habit) => {
-    const newValue = habit.type === 'boolean' ? !currentValue : (currentValue || 0) + 1;
+    if (dateStr > today) return;
+    if (habit.isShared && habit.myRole === 'viewer') {
+      toast.error('Viewers cannot log shared habits');
+      return;
+    }
+    const newValue = habit.type === 'boolean' ? !currentValue : Math.max(0, (currentValue || 0) + 1);
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
       fetchData();
-    } catch {
-      toast.error('Failed to save');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save');
     }
   };
 
@@ -175,12 +187,14 @@ export default function MonthlyGridView() {
             if (!cell) return <div key={`empty-${i}`} />;
             const { day, dateStr, isScheduled, value, isCompleted } = cell;
             const isToday = dateStr === today;
+            const isFuture = dateStr > today;
+            const canLog = isScheduled && !isFuture;
 
             return (
               <button
                 key={dateStr}
-                onClick={() => isScheduled && handleToggle(habit._id, dateStr, value, habit)}
-                disabled={!isScheduled}
+                onClick={() => canLog && handleToggle(habit._id, dateStr, value, habit)}
+                disabled={!canLog}
                 className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs transition relative ${
                   isToday ? 'ring-2 ring-indigo-500' : ''
                 } ${

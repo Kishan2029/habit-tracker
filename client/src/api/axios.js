@@ -17,9 +17,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const authPages = ['/login', '/register', '/forgot-password', '/reset-password'];
+      const isAuthPage = authPages.some((p) => window.location.pathname.startsWith(p));
+
+      // Only redirect to login if we're NOT already on an auth page
+      // (auth pages return 401 for invalid credentials — that's expected, not a session expiry)
+      if (!isAuthPage) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

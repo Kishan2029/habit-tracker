@@ -11,3 +11,6 @@ export const getYearlyLogs = (year) => api.get(`/logs/yearly?year=${year}`);
 
 export const getRangeLogs = (start, end) =>
   api.get(`/logs/range?start=${start}&end=${end}`);
+
+export const getMembersProgress = (habitId, date) =>
+  api.get(`/logs/shared/${habitId}/progress?date=${date}`);

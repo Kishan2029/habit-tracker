@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getMonthlyLogs } from '../../api/logApi';
 import CalendarHeatmap from './CalendarHeatmap';
 import HabitSelector from './HabitSelector';
@@ -19,17 +19,22 @@ export default function MonthlyAnalytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
+    const fetchId = ++fetchIdRef.current;
     const fetchData = async () => {
       setLoading(true);
       try {
         const { data: res } = await getMonthlyLogs(month, year);
+        if (fetchId !== fetchIdRef.current) return;
         setData(res.data);
+        setSelectedHabit('');
       } catch {
+        if (fetchId !== fetchIdRef.current) return;
         setData(null);
       } finally {
-        setLoading(false);
+        if (fetchId === fetchIdRef.current) setLoading(false);
       }
     };
     fetchData();
@@ -67,7 +72,7 @@ export default function MonthlyAnalytics() {
       scheduled++;
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const log = data.logs.find((l) => {
-        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : new Date(l.date).toISOString().split('T')[0];
+        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
         return logDate === dateStr && l.habitId === habit._id;
       });
       if (log) {
@@ -145,7 +150,7 @@ export default function MonthlyAnalytics() {
       <Card className="p-4">
         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Habit Breakdown</h4>
         <div className="space-y-3">
-          {habitStats.sort((a, b) => b.rate - a.rate).map(({ habit, completed, scheduled, rate }) => (
+          {[...habitStats].sort((a, b) => b.rate - a.rate).map(({ habit, completed, scheduled, rate }) => (
             <div key={habit._id}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 min-w-0">

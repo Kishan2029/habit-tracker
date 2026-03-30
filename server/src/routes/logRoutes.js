@@ -14,6 +14,7 @@ import {
   getMonthlyLogs,
   getYearlyLogs,
   getRangeLogs,
+  getMembersProgress,
 } from '../controllers/logController.js';
 
 const router = Router();
@@ -330,5 +331,53 @@ router.get('/yearly', yearlyQueryRules, validate, getYearlyLogs);
  *                         $ref: '#/components/schemas/HabitLog'
  */
 router.get('/range', rangeQueryRules, validate, getRangeLogs);
+
+/**
+ * @swagger
+ * /logs/shared/{habitId}/progress:
+ *   get:
+ *     summary: Get shared habit members' progress for a date
+ *     tags: [Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: habitId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Shared habit ID
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2025-01-15"
+ *         description: "Date in YYYY-MM-DD format"
+ *     responses:
+ *       200:
+ *         description: Members progress retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Members progress retrieved
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Missing date parameter
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/shared/:habitId/progress', getMembersProgress);
 
 export default router;

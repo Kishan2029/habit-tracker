@@ -48,7 +48,20 @@ export const resetPasswordRules = [
     .notEmpty()
     .withMessage('Reset token is required')
     .isHexadecimal()
-    .withMessage('Invalid reset token format'),
+    .withMessage('Invalid reset token format')
+    .isLength({ min: 64, max: 64 })
+    .withMessage('Invalid reset token length'),
+  body('newPassword')
+    .notEmpty()
+    .withMessage('New password is required')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters'),
+];
+
+export const changePasswordRules = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
   body('newPassword')
     .notEmpty()
     .withMessage('New password is required')

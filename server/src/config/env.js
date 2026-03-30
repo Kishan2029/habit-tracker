@@ -1,6 +1,10 @@
+import { resolve } from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+
+// Load environment-specific file first, then fall back to .env
+dotenv.config({ path: resolve(process.cwd(), envFile) });
 
 const required = ['MONGODB_URI', 'JWT_SECRET'];
 
@@ -26,6 +30,7 @@ export default {
     pass: process.env.SMTP_PASS,
   },
   emailFrom: process.env.EMAIL_FROM || 'Habit Tracker <noreply@habit-tracker.com>',
+  adminEmail: process.env.ADMIN_EMAIL || '',
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
     apiKey: process.env.CLOUDINARY_API_KEY,

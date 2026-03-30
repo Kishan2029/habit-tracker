@@ -27,7 +27,7 @@ export default function CountStepper({ value, target, unit, color, onChange }) {
         </span>
       </div>
       <button
-        onClick={() => onChange(value + 1)}
+        onClick={() => onChange(Math.min(9999, value + 1))}
         className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:opacity-80"
         style={{ backgroundColor: color, color: 'white' }}
       >

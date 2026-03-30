@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { param } from 'express-validator';
 import authenticate from '../middleware/authenticate.js';
 import validate from '../middleware/validate.js';
 import { createHabitRules, updateHabitRules, reorderHabitRules } from '../validators/habitValidators.js';
@@ -14,6 +15,8 @@ import {
 } from '../controllers/habitController.js';
 
 const router = Router();
+
+const idParamRule = [param('id').isMongoId().withMessage('Invalid habit ID')];
 
 router.use(authenticate);
 
@@ -146,7 +149,7 @@ router.put('/reorder', reorderHabitRules, validate, reorderHabits);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', getHabit);
+router.get('/:id', idParamRule, validate, getHabit);
 
 /**
  * @swagger
@@ -305,7 +308,7 @@ router.post('/', createHabitRules, validate, createHabit);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/:id', updateHabitRules, validate, updateHabit);
+router.put('/:id', idParamRule, updateHabitRules, validate, updateHabit);
 
 /**
  * @swagger
@@ -348,7 +351,7 @@ router.put('/:id', updateHabitRules, validate, updateHabit);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/:id/archive', archiveHabit);
+router.put('/:id/archive', idParamRule, validate, archiveHabit);
 
 /**
  * @swagger
@@ -391,7 +394,7 @@ router.put('/:id/archive', archiveHabit);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/:id/unarchive', unarchiveHabit);
+router.put('/:id/unarchive', idParamRule, validate, unarchiveHabit);
 
 /**
  * @swagger
@@ -429,6 +432,6 @@ router.put('/:id/unarchive', unarchiveHabit);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete('/:id', deleteHabit);
+router.delete('/:id', idParamRule, validate, deleteHabit);
 
 export default router;

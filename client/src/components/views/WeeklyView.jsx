@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
+import SharedBadge from '../ui/SharedBadge';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import EmptyState from '../ui/EmptyState';
@@ -26,20 +27,24 @@ export default function WeeklyView() {
   const [weekStart, setWeekStart] = useState(getWeekStart(today));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const fetchIdRef = useRef(0);
   const navigate = useNavigate();
 
   const weekDays = getWeekDays(weekStart);
   const weekEnd = weekDays[6];
 
   const fetchData = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
     setLoading(true);
     try {
       const { data: res } = await getRangeLogs(weekStart, weekEnd);
+      if (fetchId !== fetchIdRef.current) return;
       setData(res.data);
     } catch {
+      if (fetchId !== fetchIdRef.current) return;
       toast.error('Failed to load weekly data');
     } finally {
-      setLoading(false);
+      if (fetchId === fetchIdRef.current) setLoading(false);
     }
   }, [weekStart, weekEnd]);
 
@@ -48,6 +53,11 @@ export default function WeeklyView() {
   }, [fetchData]);
 
   const handleToggle = async (habitId, dateStr, currentValue, habit, delta = 1) => {
+    // Block viewers from logging shared habits
+    if (habit.isShared && habit.myRole === 'viewer') {
+      toast.error('Viewers cannot log shared habits');
+      return;
+    }
     let newValue;
     if (habit.type === 'boolean') {
       newValue = !currentValue;
@@ -58,8 +68,8 @@ export default function WeeklyView() {
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
       fetchData();
-    } catch {
-      toast.error('Failed to save');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save');
     }
   };
 
@@ -124,12 +134,15 @@ export default function WeeklyView() {
             {data.habits.map((habit) => {
               const cat = getCategoryConfig(habit.category);
               return (
-                <tr key={habit._id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <tr key={habit._id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${habit.isShared ? (habit.myRole === 'owner' ? 'bg-indigo-50/30 dark:bg-indigo-900/5' : 'bg-purple-50/30 dark:bg-purple-900/5') : ''}`}>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{habit.icon}</span>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white text-sm">{habit.name}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-900 dark:text-white text-sm">{habit.name}</span>
+                          {habit.isShared && <SharedBadge sharedBy={habit.sharedBy} />}
+                        </div>
                         <span className="text-xs" style={{ color: cat.color }}>{cat.icon} {cat.label}</span>
                       </div>
                     </div>

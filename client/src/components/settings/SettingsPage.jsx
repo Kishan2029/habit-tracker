@@ -1,6 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import AvatarUpload from './AvatarUpload';
+import ChangePasswordForm from './ChangePasswordForm';
 import NotificationToggle from './NotificationToggle';
 import Card from '../ui/Card';
 
@@ -43,6 +44,11 @@ export default function SettingsPage() {
             <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{user?.role}</p>
           </div>
         </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Security</h2>
+        <ChangePasswordForm />
       </Card>
 
       <Card className="p-6">

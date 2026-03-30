@@ -92,9 +92,7 @@ describe('AuthController', () => {
   });
 
   describe('forgotPassword', () => {
-    it('should return reset token in non-production', async () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
+    it('should never return reset token in response', async () => {
       authService.forgotPassword.mockResolvedValue({ resetToken: 'abc123' });
 
       const req = { body: { email: 'john@test.com' } };
@@ -103,10 +101,9 @@ describe('AuthController', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          data: { resetToken: 'abc123' },
+          data: {},
         })
       );
-      process.env.NODE_ENV = originalEnv;
     });
 
     it('should not return reset token in production', async () => {

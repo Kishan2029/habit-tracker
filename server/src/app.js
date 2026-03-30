@@ -22,8 +22,10 @@ if (env.nodeEnv === 'development') {
 }
 app.use(express.json({ limit: '10kb' }));
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
+if (env.nodeEnv !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
+}
 
 app.use('/api', routes);
 

@@ -17,6 +17,13 @@ jest.unstable_mockModule('../../models/HabitLog.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../models/SharedHabit.js', () => ({
+  default: {
+    findOne: jest.fn(),
+    findOneAndDelete: jest.fn(),
+  },
+}));
+
 jest.unstable_mockModule('../../services/cacheService.js', () => ({
   default: {
     get: jest.fn(),
@@ -25,14 +32,23 @@ jest.unstable_mockModule('../../services/cacheService.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
+  default: {
+    getUserRoleForHabit: jest.fn(),
+  },
+}));
+
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: HabitLog } = await import('../../models/HabitLog.js');
+const { default: SharedHabit } = await import('../../models/SharedHabit.js');
 const { default: cache } = await import('../../services/cacheService.js');
+const { default: sharedHabitService } = await import('../../services/sharedHabitService.js');
 const { default: habitService } = await import('../../services/habitService.js');
 
 describe('HabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
   });
 
   describe('_cacheKey', () => {
@@ -61,7 +77,7 @@ describe('HabitService', () => {
       cache.get.mockReturnValue(undefined);
       const habits = [{ name: 'Exercise' }];
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue(habits),
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(habits) }),
       });
 
       const result = await habitService.getAll('user1');
@@ -72,7 +88,7 @@ describe('HabitService', () => {
     it('should filter by category when provided', async () => {
       cache.get.mockReturnValue(undefined);
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue([]),
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
       });
 
       await habitService.getAll('user1', { category: 'fitness' });
@@ -86,7 +102,7 @@ describe('HabitService', () => {
     it('should include archived when requested', async () => {
       cache.get.mockReturnValue(undefined);
       Habit.find.mockReturnValue({
-        sort: jest.fn().mockResolvedValue([]),
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
       });
 
       await habitService.getAll('user1', { includeArchived: true });
@@ -166,6 +182,22 @@ describe('HabitService', () => {
       expect(habit.save).toHaveBeenCalled();
       expect(cache.delByPrefix).toHaveBeenCalledWith('habits:user1');
     });
+
+    it('should invalidate the owner cache when a shared admin updates a habit', async () => {
+      const habit = {
+        _id: 'h1',
+        userId: { toString: () => 'owner1' },
+        name: 'Original',
+        save: jest.fn().mockResolvedValue(true),
+      };
+      Habit.findById.mockResolvedValue(habit);
+      sharedHabitService.getUserRoleForHabit.mockResolvedValue('admin');
+
+      await habitService.update('h1', 'admin1', { name: 'Updated' });
+
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:admin1');
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:owner1');
+    });
   });
 
   describe('archive', () => {
@@ -177,10 +209,28 @@ describe('HabitService', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue(null);
 
       await habitService.archive('h1', 'user1');
       expect(habit.isArchived).toBe(true);
       expect(habit.save).toHaveBeenCalled();
+    });
+
+    it('should reject archiving an active shared habit', async () => {
+      const habit = {
+        _id: 'h1',
+        userId: { toString: () => 'user1' },
+        isArchived: false,
+        save: jest.fn(),
+      };
+      Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue({ _id: 'sh1' });
+
+      await expect(habitService.archive('h1', 'user1')).rejects.toMatchObject({
+        message: 'Unshare the habit before archiving it',
+        statusCode: 400,
+      });
+      expect(habit.save).not.toHaveBeenCalled();
     });
   });
 
@@ -207,6 +257,7 @@ describe('HabitService', () => {
       };
       Habit.findById.mockResolvedValue(habit);
       HabitLog.deleteMany.mockResolvedValue({ deletedCount: 5 });
+      SharedHabit.findOneAndDelete.mockResolvedValue(true);
       Habit.findByIdAndDelete.mockResolvedValue(true);
 
       const result = await habitService.delete('h1', 'user1');

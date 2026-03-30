@@ -4,6 +4,7 @@ import Habit from '../models/Habit.js';
 import HabitLog from '../models/HabitLog.js';
 import { toUTCMidnight } from '../utils/dateHelpers.js';
 import { CATEGORY_DEFAULTS } from '../config/constants.js';
+import sharedHabitService from './sharedHabitService.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -24,16 +25,35 @@ class ExportService {
   async getExportData(userId, startDate, endDate) {
     const start = toUTCMidnight(startDate);
     const end = toUTCMidnight(endDate);
-
-    const habits = await Habit.find({ userId, isArchived: false }).sort({ sortOrder: 1 });
     const logs = await HabitLog.find({
       userId,
       date: { $gte: start, $lte: end },
     }).sort({ date: 1 });
+    const loggedHabitIds = [...new Set(logs.map((log) => log.habitId.toString()))];
+
+    const ownHabits = await Habit.find({
+      userId,
+      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
+    }).sort({ sortOrder: 1 });
+
+    const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
+    const sharedHabitIds = sharedEntries.map((entry) => entry.habitId);
+    let sharedHabits = [];
+
+    if (sharedHabitIds.length > 0) {
+      sharedHabits = await Habit.find({
+        _id: { $in: sharedHabitIds },
+        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
+      }).sort({ createdAt: -1 });
+    }
+
+    const habits = [...ownHabits, ...sharedHabits];
+    const habitIdSet = new Set(habits.map((habit) => habit._id.toString()));
+    const filteredLogs = logs.filter((log) => habitIdSet.has(log.habitId.toString()));
 
     // Build log lookup: habitId-dateStr → log
     const logMap = new Map();
-    for (const log of logs) {
+    for (const log of filteredLogs) {
       const dateKey = log.date.toISOString().split('T')[0];
       logMap.set(`${log.habitId}-${dateKey}`, log);
     }
@@ -42,7 +62,7 @@ class ExportService {
     const dates = [];
     const s = new Date(startDate + 'T00:00:00Z');
     const e = new Date(endDate + 'T00:00:00Z');
-    for (let d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+    for (let d = new Date(s); d <= e; d = new Date(d.getTime() + 86400000)) {
       dates.push(d.toISOString().split('T')[0]);
     }
 
@@ -62,7 +82,7 @@ class ExportService {
       return { habit, daysTracked, daysCompleted, completionRate, catConfig };
     });
 
-    return { habits, logs, logMap, dates, habitStats, start, end };
+    return { habits, logs: filteredLogs, logMap, dates, habitStats, start, end };
   }
 
   // ─── EXCEL EXPORT ────────────────────────────────────────────
@@ -322,7 +342,7 @@ class ExportService {
 
       drawStatBox(marginL, statsY, 'Total Habits', `${habits.length}`, '#6366F1');
       drawStatBox(marginL + statsBoxW + 20, statsY, 'Overall Completion', `${overallRate}%`, overallRate >= 75 ? '#16A34A' : overallRate >= 50 ? '#D97706' : '#DC2626');
-      drawStatBox(marginL, statsY + statsBoxH + 15, 'Best Habit', bestHabit ? bestHabit.habit.name.substring(0, 20) : '-', '#6366F1');
+      drawStatBox(marginL, statsY + statsBoxH + 15, 'Best Habit', bestHabit ? (bestHabit.habit.name || '').substring(0, 20) : '-', '#6366F1');
       drawStatBox(marginL + statsBoxW + 20, statsY + statsBoxH + 15, 'Best Day', `${DAY_NAMES[bestDayIdx]} (${Math.round(bestDayRate * 100)}%)`, '#6366F1');
 
       doc.y = statsY + 2 * (statsBoxH + 15) + 20;

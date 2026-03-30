@@ -26,6 +26,11 @@ class AuthService {
 
     const token = this.generateToken(user._id);
 
+    // Send welcome email (non-blocking)
+    emailService.sendWelcomeEmail(user.email, user.name).catch((err) => {
+      console.error('[Email] Failed to send welcome email:', err.message);
+    });
+
     return {
       user: {
         _id: user._id,
@@ -63,17 +68,20 @@ class AuthService {
   async forgotPassword(email) {
     const user = await User.findOne({ email });
     if (!user) {
-      // In production, don't reveal whether email exists
-      if (env.nodeEnv === 'production') {
-        return { resetToken: null };
-      }
-      throw new AppError('No account found with that email', 404);
+      return { resetToken: null };
     }
 
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
 
-    await emailService.sendPasswordResetEmail(email, resetToken);
+    try {
+      await emailService.sendPasswordResetEmail(email, resetToken);
+    } catch (err) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      throw new AppError('There was an error sending the email. Try again later.', 500);
+    }
 
     return { resetToken };
   }
@@ -96,9 +104,42 @@ class AuthService {
     user.passwordHash = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.passwordChangedAt = new Date();
     await user.save();
 
+    // Send password reset confirmation email (non-blocking)
+    emailService.sendPasswordResetConfirmationEmail(user.email, user.name).catch((err) => {
+      console.error('[Email] Failed to send reset confirmation email:', err.message);
+    });
+
     return { message: 'Password reset successful' };
+  }
+
+  async changePassword(userId, { currentPassword, newPassword }) {
+    const user = await User.findById(userId).select('+passwordHash');
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      throw new AppError('Current password is incorrect', 401);
+    }
+
+    if (currentPassword === newPassword) {
+      throw new AppError('New password must be different from current password', 400);
+    }
+
+    user.passwordHash = newPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    // Send password changed notification email (non-blocking)
+    emailService.sendPasswordChangedEmail(user.email, user.name).catch((err) => {
+      console.error('[Email] Failed to send password changed email:', err.message);
+    });
+
+    return { message: 'Password changed successfully', token: this.generateToken(user._id) };
   }
 }
 

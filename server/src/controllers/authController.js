@@ -16,13 +16,18 @@ export const login = catchAsync(async (req, res) => {
 
 export const forgotPassword = catchAsync(async (req, res) => {
   const { email } = req.body;
-  const result = await authService.forgotPassword(email);
-  const data = process.env.NODE_ENV !== 'production' ? { resetToken: result.resetToken } : {};
-  sendSuccess(res, data, 'If an account exists with that email, a password reset link has been sent.');
+  await authService.forgotPassword(email);
+  sendSuccess(res, {}, 'If an account exists with that email, a password reset link has been sent.');
 });
 
 export const resetPassword = catchAsync(async (req, res) => {
   const { token, newPassword } = req.body;
   await authService.resetPassword(token, newPassword);
   sendSuccess(res, {}, 'Password has been reset successfully. You can now log in with your new password.');
+});
+
+export const changePassword = catchAsync(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const result = await authService.changePassword(req.user._id, { currentPassword, newPassword });
+  sendSuccess(res, { token: result.token }, 'Password changed successfully');
 });
