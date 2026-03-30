@@ -27,6 +27,10 @@ if (env.nodeEnv !== 'production') {
   app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
 }
 
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 app.use('/api', routes);
 
 app.use((req, res) => {
