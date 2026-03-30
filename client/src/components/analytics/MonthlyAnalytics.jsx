@@ -61,6 +61,13 @@ export default function MonthlyAnalytics() {
     );
   }
 
+  // Build a log lookup map: "habitId-YYYY-MM-DD" -> log (O(n) instead of O(n²))
+  const logLookup = new Map();
+  for (const l of data.logs) {
+    const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
+    logLookup.set(`${l.habitId}-${logDate}`, l);
+  }
+
   // Compute per-habit stats with proportional completion for count habits
   const daysInMonth = new Date(year, month, 0).getDate();
   const habitStats = data.habits.map((habit) => {
@@ -71,10 +78,7 @@ export default function MonthlyAnalytics() {
       if (!habit.frequency.includes(dow)) continue;
       scheduled++;
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const log = data.logs.find((l) => {
-        const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
-        return logDate === dateStr && l.habitId === habit._id;
-      });
+      const log = logLookup.get(`${habit._id}-${dateStr}`);
       if (log) {
         if (typeof log.value === 'boolean') {
           completionSum += log.value ? 1 : 0;

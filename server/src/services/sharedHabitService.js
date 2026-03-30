@@ -188,31 +188,25 @@ class SharedHabitService {
 
     await shared.save();
 
-    // Send invite email (non-blocking — don't fail the invite if email fails)
-    let emailSent = false;
-    let emailError = null;
-
-    if (!emailService.isConfigured) {
-      emailError = 'Email service not configured (SMTP settings missing)';
-    } else {
-      try {
-        const inviter = await User.findById(requesterId, 'name');
-        const habit = await Habit.findById(habitId, 'name');
-        await emailService.sendHabitInviteEmail(
+    // Send invite email asynchronously — don't block the response
+    if (emailService.isConfigured) {
+      Promise.all([
+        User.findById(requesterId, 'name'),
+        Habit.findById(habitId, 'name'),
+      ]).then(([inviter, habit]) =>
+        emailService.sendHabitInviteEmail(
           targetUser.email,
           targetUser.name,
           inviter?.name || 'Someone',
           habit?.name || 'a habit',
           shared.inviteCode
-        );
-        emailSent = true;
-      } catch (emailErr) {
+        )
+      ).catch((emailErr) => {
         console.error('Failed to send invite email:', emailErr.message, emailErr.stack);
-        emailError = emailErr.message;
-      }
+      });
     }
 
-    return { shared, emailSent, emailError };
+    return { shared, emailSent: emailService.isConfigured, emailError: emailService.isConfigured ? null : 'Email service not configured (SMTP settings missing)' };
   }
 
   // ─── Respond to Invite ──────────────────────────────────────────────

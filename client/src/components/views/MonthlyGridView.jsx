@@ -56,7 +56,7 @@ export default function MonthlyGridView() {
     fetchData();
   }, [fetchData]);
 
-  const handleToggle = async (habitId, dateStr, currentValue, habit) => {
+  const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit) => {
     if (dateStr > today) return;
     if (habit.isShared && habit.myRole === 'viewer') {
       toast.error('Viewers cannot log shared habits');
@@ -69,7 +69,7 @@ export default function MonthlyGridView() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  };
+  }, [today, fetchData]);
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(year - 1); }

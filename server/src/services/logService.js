@@ -539,17 +539,30 @@ class LogService {
       });
     }
 
-    // Other members
+    // Other members — batch fetch any unpopulated users
+    const populatedMap = new Map();
+    const unpopulatedIds = [];
     for (const member of memberUserIds) {
       const uid = member.userId.toString();
-      // Get populated user data if available, otherwise fetch
       const populatedMember = shared.sharedWith.find(
         (m) => (m.userId._id || m.userId).toString() === uid && m.status === 'accepted'
       );
-      const userInfo = populatedMember?.userId?.name
-        ? populatedMember.userId
-        : await User.findById(uid, 'name email avatar');
+      if (populatedMember?.userId?.name) {
+        populatedMap.set(uid, populatedMember.userId);
+      } else {
+        unpopulatedIds.push(uid);
+      }
+    }
+    if (unpopulatedIds.length > 0) {
+      const fetched = await User.find({ _id: { $in: unpopulatedIds } }, 'name email avatar');
+      for (const u of fetched) {
+        populatedMap.set(u._id.toString(), u);
+      }
+    }
 
+    for (const member of memberUserIds) {
+      const uid = member.userId.toString();
+      const userInfo = populatedMap.get(uid);
       if (!userInfo) continue;
 
       const memberLog = logMap.get(uid);
