@@ -31,10 +31,6 @@ app.get('/', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
 app.use('/api', routes);
 
 app.use((req, res) => {
