@@ -1,15 +1,25 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
+import { getPendingInvites } from '../../api/sharedHabitApi';
 
 const navItems = [
   { path: '/today', label: 'Today', icon: '\u{1F4C5}' },
   { path: '/weekly', label: 'Weekly', icon: '\u{1F4C6}' },
   { path: '/habits', label: 'Habits', icon: '\u{1F4CB}' },
-  { path: '/shared', label: 'Shared', icon: '\u{1F91D}' },
+  { path: '/shared', label: 'Shared', icon: '\u{1F91D}', badge: true },
   { path: '/analytics', label: 'Analytics', icon: '\u{1F4CA}' },
   { path: '/settings', label: 'Settings', icon: '\u2699\uFE0F' },
 ];
 
 export default function Sidebar({ isMobileOpen, onClose }) {
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    getPendingInvites()
+      .then(({ data: res }) => setPendingCount(res.data.invites?.length || 0))
+      .catch(() => {});
+  }, []);
+
   return (
     <>
       {isMobileOpen && (
@@ -41,6 +51,11 @@ export default function Sidebar({ isMobileOpen, onClose }) {
             >
               <span className="text-lg">{item.icon}</span>
               <span>{item.label}</span>
+              {item.badge && pendingCount > 0 && (
+                <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white min-w-[18px] text-center">
+                  {pendingCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

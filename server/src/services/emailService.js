@@ -15,6 +15,9 @@ class EmailService {
           pass: env.smtp.pass,
         },
       });
+      console.log('[Email] SMTP configured successfully');
+    } else {
+      console.log('[Email] SMTP not configured — emails will be logged to console only. Set SMTP_HOST, SMTP_USER, SMTP_PASS to enable.');
     }
   }
 

@@ -23,6 +23,12 @@ jest.unstable_mockModule('../../models/HabitLog.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../models/SharedHabit.js', () => ({
+  default: {
+    find: jest.fn(),
+  },
+}));
+
 jest.unstable_mockModule('../../services/streakService.js', () => ({
   default: {
     calculateStreaks: jest.fn().mockReturnValue({ currentStreak: 3, longestStreak: 5 }),
@@ -48,6 +54,7 @@ jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
 
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: HabitLog } = await import('../../models/HabitLog.js');
+const { default: SharedHabit } = await import('../../models/SharedHabit.js');
 const { default: User } = await import('../../models/User.js');
 const { default: sharedHabitService } = await import('../../services/sharedHabitService.js');
 const { default: logService } = await import('../../services/logService.js');
@@ -57,6 +64,9 @@ describe('LogService', () => {
     jest.clearAllMocks();
     sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
     sharedHabitService.getSharedHabitIdsForUser.mockResolvedValue([]);
+    SharedHabit.find.mockReturnValue({
+      select: jest.fn().mockResolvedValue([]),
+    });
   });
 
   describe('createOrUpdate', () => {
@@ -309,6 +319,49 @@ describe('LogService', () => {
       expect(result.endDate).toBe('2025-01-31');
       expect(result.habits).toHaveLength(1);
       expect(result.logs).toHaveLength(1);
+    });
+
+    it('should use personal streaks for shared habits in range logs', async () => {
+      sharedHabitService.getSharedHabitIdsForUser.mockResolvedValue([
+        { habitId: 'sh1', ownerId: 'owner1', role: 'member' },
+      ]);
+      Habit.find
+        .mockReturnValueOnce({
+          sort: jest.fn().mockResolvedValue([]),
+        })
+        .mockReturnValueOnce({
+          sort: jest.fn().mockResolvedValue([
+            {
+              _id: 'sh1',
+              target: 1,
+              frequency: [0],
+              createdAt: new Date('2024-01-01'),
+              currentStreak: 99,
+              longestStreak: 99,
+              toObject: jest.fn().mockReturnValue({
+                _id: 'sh1',
+                target: 1,
+                currentStreak: 99,
+                longestStreak: 99,
+              }),
+            },
+          ]),
+        });
+      User.find.mockResolvedValue([{ _id: { toString: () => 'owner1' }, name: 'Owner' }]);
+      HabitLog.find
+        .mockResolvedValueOnce([{ habitId: { toString: () => 'sh1' }, value: true }])
+        .mockReturnValueOnce({
+          sort: jest.fn().mockResolvedValue([{ habitId: { toString: () => 'sh1' }, value: true }]),
+        });
+
+      const result = await logService.getRangeLogs('user1', '2025-01-01', '2025-01-31');
+
+      expect(result.habits).toHaveLength(1);
+      expect(result.habits[0].currentStreak).toBe(3);
+      expect(result.habits[0].longestStreak).toBe(5);
+      expect(result.habits[0].isShared).toBe(true);
+      expect(result.habits[0].sharedBy).toBe('Owner');
+      expect(result.habits[0].myRole).toBe('member');
     });
   });
 

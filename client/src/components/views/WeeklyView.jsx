@@ -52,7 +52,7 @@ export default function WeeklyView() {
     fetchData();
   }, [fetchData]);
 
-  const handleToggle = async (habitId, dateStr, currentValue, habit, delta = 1) => {
+  const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit, delta = 1) => {
     // Block viewers from logging shared habits
     if (habit.isShared && habit.myRole === 'viewer') {
       toast.error('Viewers cannot log shared habits');
@@ -71,7 +71,7 @@ export default function WeeklyView() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  };
+  }, [fetchData]);
 
   const goToPrevWeek = () => setWeekStart(shiftDate(weekStart, -7));
   const goToNextWeek = () => setWeekStart(shiftDate(weekStart, 7));
@@ -134,7 +134,7 @@ export default function WeeklyView() {
             {data.habits.map((habit) => {
               const cat = getCategoryConfig(habit.category);
               return (
-                <tr key={habit._id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <tr key={habit._id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${habit.isShared ? (habit.myRole === 'owner' ? 'bg-indigo-50/30 dark:bg-indigo-900/5' : 'bg-purple-50/30 dark:bg-purple-900/5') : ''}`}>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{habit.icon}</span>

@@ -4,8 +4,6 @@ jest.unstable_mockModule('multer', () => {
   const multerInstance = {
     single: jest.fn(),
     array: jest.fn(),
-    fields: jest.fn(),
-    none: jest.fn(),
   };
   const multerFn = jest.fn(() => multerInstance);
   multerFn.memoryStorage = jest.fn(() => 'memoryStorage');
@@ -13,63 +11,56 @@ jest.unstable_mockModule('multer', () => {
 });
 
 const { default: multer } = await import('multer');
-
-// Import after mocking to capture the config
-await import('../../middleware/upload.js');
+const { default: upload } = await import('../../middleware/upload.js');
 
 describe('Upload Middleware', () => {
   it('should use memory storage', () => {
     expect(multer.memoryStorage).toHaveBeenCalled();
   });
 
-  it('should configure multer with 5MB file size limit', () => {
+  it('should configure multer with correct options', () => {
     expect(multer).toHaveBeenCalledWith(
       expect.objectContaining({
+        storage: 'memoryStorage',
         limits: { fileSize: 5 * 1024 * 1024 },
       })
     );
   });
 
-  it('should configure a file filter', () => {
+  it('should accept image files in fileFilter', () => {
     const config = multer.mock.calls[0][0];
-    expect(config.fileFilter).toBeDefined();
+    const fileFilter = config.fileFilter;
+
+    const cb = jest.fn();
+    fileFilter({}, { mimetype: 'image/png' }, cb);
+    expect(cb).toHaveBeenCalledWith(null, true);
+
+    cb.mockClear();
+    fileFilter({}, { mimetype: 'image/jpeg' }, cb);
+    expect(cb).toHaveBeenCalledWith(null, true);
   });
 
-  describe('fileFilter', () => {
-    let fileFilter;
+  it('should reject non-image files in fileFilter', () => {
+    const config = multer.mock.calls[0][0];
+    const fileFilter = config.fileFilter;
 
-    beforeEach(() => {
-      fileFilter = multer.mock.calls[0][0].fileFilter;
-    });
+    const cb = jest.fn();
+    fileFilter({}, { mimetype: 'application/pdf' }, cb);
+    expect(cb).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Only image files are allowed', statusCode: 400 }),
+      false
+    );
+  });
 
-    it('should accept image files', () => {
-      const cb = jest.fn();
-      fileFilter({}, { mimetype: 'image/png' }, cb);
-      expect(cb).toHaveBeenCalledWith(null, true);
-    });
+  it('should reject text files', () => {
+    const config = multer.mock.calls[0][0];
+    const fileFilter = config.fileFilter;
 
-    it('should accept jpeg images', () => {
-      const cb = jest.fn();
-      fileFilter({}, { mimetype: 'image/jpeg' }, cb);
-      expect(cb).toHaveBeenCalledWith(null, true);
-    });
-
-    it('should reject non-image files', () => {
-      const cb = jest.fn();
-      fileFilter({}, { mimetype: 'application/pdf' }, cb);
-      expect(cb).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Only image files are allowed' }),
-        false
-      );
-    });
-
-    it('should reject text files', () => {
-      const cb = jest.fn();
-      fileFilter({}, { mimetype: 'text/plain' }, cb);
-      expect(cb).toHaveBeenCalledWith(
-        expect.objectContaining({ statusCode: 400 }),
-        false
-      );
-    });
+    const cb = jest.fn();
+    fileFilter({}, { mimetype: 'text/plain' }, cb);
+    expect(cb).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Only image files are allowed' }),
+      false
+    );
   });
 });

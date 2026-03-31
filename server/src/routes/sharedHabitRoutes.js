@@ -11,10 +11,12 @@ import {
   updateMemberRole,
   transferOwnership,
   getSharedWithMe,
+  getSharedByMe,
   getPendingInvites,
   getSharingInfo,
   regenerateInviteCode,
   unshareHabit,
+  getInvitePreview,
 } from '../controllers/sharedHabitController.js';
 import {
   shareHabitRules,
@@ -28,6 +30,58 @@ import {
 } from '../validators/sharedHabitValidators.js';
 
 const router = Router();
+
+/**
+ * @swagger
+ * /shared/preview/{inviteCode}:
+ *   get:
+ *     summary: Preview a shared habit invite (public, no auth required)
+ *     tags: [Shared Habits]
+ *     parameters:
+ *       - in: path
+ *         name: inviteCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The invite code from the sharing link
+ *     responses:
+ *       200:
+ *         description: Invite preview retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Invite preview retrieved
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     preview:
+ *                       type: object
+ *                       properties:
+ *                         habitName:
+ *                           type: string
+ *                           example: Morning Run
+ *                         ownerName:
+ *                           type: string
+ *                           example: John Doe
+ *                         memberCount:
+ *                           type: number
+ *                           example: 3
+ *       404:
+ *         description: Invalid or expired invite code
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+// Public route — no auth needed (for invite link previews before login)
+router.get('/preview/:inviteCode', getInvitePreview);
 
 router.use(authenticate);
 
@@ -308,6 +362,38 @@ router.get('/with-me', getSharedWithMe);
  *                         $ref: '#/components/schemas/SharedHabit'
  */
 router.get('/pending', getPendingInvites);
+
+/**
+ * @swagger
+ * /shared/by-me:
+ *   get:
+ *     summary: Get habits shared by the current user (owner view)
+ *     tags: [Shared Habits]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Shared habits by user retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Shared by me retrieved
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     sharedHabits:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/SharedHabit'
+ */
+router.get('/by-me', getSharedByMe);
 
 /**
  * @swagger

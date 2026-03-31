@@ -4,7 +4,9 @@ const mockSendMail = jest.fn();
 
 jest.unstable_mockModule('nodemailer', () => ({
   default: {
-    createTransport: jest.fn(() => ({ sendMail: mockSendMail })),
+    createTransport: jest.fn(() => ({
+      sendMail: mockSendMail,
+    })),
   },
 }));
 
@@ -12,47 +14,78 @@ jest.unstable_mockModule('../../config/env.js', () => ({
   default: {
     smtp: { host: 'smtp.test.com', port: 587, user: 'user', pass: 'pass' },
     emailFrom: 'noreply@test.com',
-    clientUrl: 'https://app.test.com',
+    clientUrl: 'http://localhost:5173',
     adminEmail: 'admin@test.com',
   },
 }));
 
-const { default: nodemailer } = await import('nodemailer');
-
-// Re-import to get a fresh instance with mocked deps
-const EmailServiceModule = await import('../../services/emailService.js');
-const emailService = EmailServiceModule.default;
+const { default: emailService } = await import('../../services/emailService.js');
 
 describe('EmailService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+  describe('constructor', () => {
+    it('should be configured when SMTP credentials are present', () => {
+      expect(emailService.isConfigured).toBe(true);
+    });
+  });
+
   describe('_escapeHtml', () => {
     it('should escape HTML special characters', () => {
-      expect(emailService._escapeHtml('<script>"test" & \'xss\'</script>')).toBe(
-        '&lt;script&gt;&quot;test&quot; &amp; &#039;xss&#039;&lt;/script&gt;'
+      expect(emailService._escapeHtml('<script>alert("xss")</script>')).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
       );
     });
 
-    it('should handle plain text without changes', () => {
-      expect(emailService._escapeHtml('Hello World')).toBe('Hello World');
+    it('should escape ampersands and quotes', () => {
+      expect(emailService._escapeHtml("Tom & Jerry's")).toBe('Tom &amp; Jerry&#039;s');
     });
   });
 
   describe('_wrap', () => {
     it('should wrap content in email template', () => {
       const result = emailService._wrap('<p>Hello</p>');
-      expect(result).toContain('<p>Hello</p>');
       expect(result).toContain('Habit Tracker');
+      expect(result).toContain('<p>Hello</p>');
+    });
+  });
+
+  describe('_send', () => {
+    it('should send email when configured', async () => {
+      mockSendMail.mockResolvedValue({});
+      await emailService._send('user@test.com', 'Subject', '<p>Body</p>', 'Test');
+
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'noreply@test.com',
+          to: 'user@test.com',
+          subject: 'Subject',
+        })
+      );
+    });
+
+    it('should log fallback when not configured', async () => {
+      const originalConfigured = emailService.isConfigured;
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      try {
+        emailService.isConfigured = false;
+        await emailService._send('user@test.com', 'Subject', '<p>Body</p>', 'Test label');
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[Email Fallback]'));
+        expect(mockSendMail).not.toHaveBeenCalled();
+      } finally {
+        emailService.isConfigured = originalConfigured;
+        consoleSpy.mockRestore();
+      }
     });
   });
 
   describe('sendWelcomeEmail', () => {
-    it('should send welcome email when configured', async () => {
+    it('should send welcome email with correct content', async () => {
       mockSendMail.mockResolvedValue({});
-
-      await emailService.sendWelcomeEmail('user@test.com', 'John');
+      await emailService.sendWelcomeEmail('user@test.com', 'Alice');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -60,63 +93,81 @@ describe('EmailService', () => {
           subject: 'Welcome to Habit Tracker!',
         })
       );
+      const html = mockSendMail.mock.calls[0][0].html;
+      expect(html).toContain('Alice');
+      expect(html).toContain('Get Started');
     });
   });
 
   describe('sendPasswordResetEmail', () => {
-    it('should send password reset email', async () => {
+    it('should send reset email when configured', async () => {
       mockSendMail.mockResolvedValue({});
-
-      await emailService.sendPasswordResetEmail('user@test.com', 'abc123token');
+      await emailService.sendPasswordResetEmail('user@test.com', 'reset123');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: 'user@test.com',
           subject: 'Reset your Habit Tracker password',
         })
       );
-      const htmlArg = mockSendMail.mock.calls[0][0].html;
-      expect(htmlArg).toContain('abc123token');
+      const html = mockSendMail.mock.calls[0][0].html;
+      expect(html).toContain('reset123');
+    });
+
+    it('should log fallback when not configured', async () => {
+      const originalConfigured = emailService.isConfigured;
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      try {
+        emailService.isConfigured = false;
+        await emailService.sendPasswordResetEmail('user@test.com', 'reset123');
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Password reset email')
+        );
+        expect(mockSendMail).not.toHaveBeenCalled();
+      } finally {
+        emailService.isConfigured = originalConfigured;
+        consoleSpy.mockRestore();
+      }
     });
   });
 
   describe('sendPasswordResetConfirmationEmail', () => {
-    it('should send password reset confirmation', async () => {
+    it('should send confirmation email', async () => {
       mockSendMail.mockResolvedValue({});
-
-      await emailService.sendPasswordResetConfirmationEmail('user@test.com', 'John');
+      await emailService.sendPasswordResetConfirmationEmail('user@test.com', 'Alice');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: 'Your password has been reset',
         })
       );
+      const html = mockSendMail.mock.calls[0][0].html;
+      expect(html).toContain('Alice');
     });
   });
 
   describe('sendHabitInviteEmail', () => {
-    it('should send habit invite email', async () => {
+    it('should send invite email with all details', async () => {
       mockSendMail.mockResolvedValue({});
-
-      await emailService.sendHabitInviteEmail('invitee@test.com', 'Jane', 'John', 'Exercise', 'invite123');
+      await emailService.sendHabitInviteEmail('bob@test.com', 'Bob', 'Alice', 'Exercise', 'code123');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: 'invitee@test.com',
+          to: 'bob@test.com',
         })
       );
-      const htmlArg = mockSendMail.mock.calls[0][0].html;
-      expect(htmlArg).toContain('Jane');
-      expect(htmlArg).toContain('John');
-      expect(htmlArg).toContain('Exercise');
+      const html = mockSendMail.mock.calls[0][0].html;
+      expect(html).toContain('Bob');
+      expect(html).toContain('Alice');
+      expect(html).toContain('Exercise');
+      expect(html).toContain('code123');
     });
   });
 
   describe('sendFeedbackNotification', () => {
     it('should send feedback notification to admin', async () => {
       mockSendMail.mockResolvedValue({});
-
-      await emailService.sendFeedbackNotification('John', 'john@test.com', 'happy', 'Great app!', 'dashboard');
+      await emailService.sendFeedbackNotification('Alice', 'alice@test.com', 'happy', 'Great!', 'dashboard');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -125,56 +176,43 @@ describe('EmailService', () => {
       );
     });
 
-    it('should include mood emoji in email', async () => {
+    it('should include mood emoji', async () => {
       mockSendMail.mockResolvedValue({});
+      await emailService.sendFeedbackNotification('Alice', 'alice@test.com', 'loved', 'Awesome', null);
 
-      await emailService.sendFeedbackNotification('John', 'john@test.com', 'happy', 'Nice', 'home');
+      const html = mockSendMail.mock.calls[0][0].html;
+      expect(html).toContain('\u{1F60D}');
+    });
 
-      const subject = mockSendMail.mock.calls[0][0].subject;
-      expect(subject).toContain('John');
+    it('should skip if admin email not configured', async () => {
+      const { default: env } = await import('../../config/env.js');
+      const originalAdminEmail = env.adminEmail;
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      try {
+        env.adminEmail = '';
+        await emailService.sendFeedbackNotification('Alice', 'alice@test.com', 'happy', 'test', null);
+
+        expect(mockSendMail).not.toHaveBeenCalled();
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('ADMIN_EMAIL not configured'));
+      } finally {
+        env.adminEmail = originalAdminEmail;
+        consoleSpy.mockRestore();
+      }
     });
   });
 
   describe('sendPasswordChangedEmail', () => {
     it('should send password changed email', async () => {
       mockSendMail.mockResolvedValue({});
-
-      await emailService.sendPasswordChangedEmail('user@test.com', 'John');
+      await emailService.sendPasswordChangedEmail('user@test.com', 'Alice');
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: 'Your Habit Tracker password was changed',
         })
       );
+      const html = mockSendMail.mock.calls[0][0].html;
+      expect(html).toContain('Alice');
     });
-  });
-});
-
-describe('EmailService (unconfigured)', () => {
-  it('should log fallback when SMTP is not configured', async () => {
-    jest.unstable_mockModule('../../config/env.js', () => ({
-      default: {
-        smtp: { host: '', port: 587, user: '', pass: '' },
-        emailFrom: '',
-        clientUrl: 'https://app.test.com',
-        adminEmail: '',
-      },
-    }));
-
-    // The singleton was already created with configured SMTP,
-    // but we can test the _send fallback by checking isConfigured
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-
-    // Create a fresh unconfigured instance
-    const { default: envUnconfigured } = await import('../../config/env.js');
-    const service = Object.create(emailService);
-    service.isConfigured = false;
-
-    await service._send('test@test.com', 'Test', '<p>Test</p>', 'Test email');
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[Email Fallback]')
-    );
-    consoleSpy.mockRestore();
   });
 });

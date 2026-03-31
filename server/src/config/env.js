@@ -1,6 +1,10 @@
+import { resolve } from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+
+// Load environment-specific file first, then fall back to .env
+dotenv.config({ path: resolve(process.cwd(), envFile) });
 
 const required = ['MONGODB_URI', 'JWT_SECRET'];
 

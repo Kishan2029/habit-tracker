@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { getYearlyLogs } from '../../api/logApi';
 import CompletionChart from './CompletionChart';
 import YearlyHeatmap from './YearlyHeatmap';
@@ -45,33 +45,46 @@ export default function YearlyAnalytics() {
     );
   }
 
-  // Compute stats
-  const habitStats = data.habits.map((habit) => {
-    const habitLogs = data.logs.filter((l) => l.habitId === habit._id);
-    const completed = habitLogs.filter((l) =>
-      typeof l.value === 'boolean' ? l.value : l.value >= habit.target
-    ).length;
-    return {
-      ...habit,
-      completed,
-      total: habitLogs.length,
-      rate: habitLogs.length > 0 ? Math.round((completed / habitLogs.length) * 100) : 0,
-    };
-  });
+  // Compute stats (memoized to avoid recalculating on every render)
+  const { habitStats, topHabits, totalLogs, completedLogs, overallRate, bestStreak, bestStreakHabit } = useMemo(() => {
+    // Build a Map for O(1) habit lookups
+    const habitMap = new Map(data.habits.map((h) => [h._id, h]));
 
-  const topHabits = [...habitStats].sort((a, b) => b.rate - a.rate).slice(0, 5);
+    // Group logs by habitId
+    const logsByHabit = new Map();
+    for (const l of data.logs) {
+      if (!logsByHabit.has(l.habitId)) logsByHabit.set(l.habitId, []);
+      logsByHabit.get(l.habitId).push(l);
+    }
 
-  const totalLogs = data.logs.length;
-  const completedLogs = data.logs.filter((l) => {
-    const habit = data.habits.find((h) => h._id === l.habitId);
-    if (!habit) return false;
-    return typeof l.value === 'boolean' ? l.value : l.value >= habit.target;
-  }).length;
-  const overallRate = totalLogs > 0 ? Math.round((completedLogs / totalLogs) * 100) : 0;
+    const stats = data.habits.map((habit) => {
+      const habitLogs = logsByHabit.get(habit._id) || [];
+      const completed = habitLogs.filter((l) =>
+        typeof l.value === 'boolean' ? l.value : l.value >= habit.target
+      ).length;
+      return {
+        ...habit,
+        completed,
+        total: habitLogs.length,
+        rate: habitLogs.length > 0 ? Math.round((completed / habitLogs.length) * 100) : 0,
+      };
+    });
 
-  // Best streak across all habits
-  const bestStreak = data.habits.reduce((max, h) => Math.max(max, h.longestStreak || 0), 0);
-  const bestStreakHabit = data.habits.find((h) => (h.longestStreak || 0) === bestStreak);
+    const top = [...stats].sort((a, b) => b.rate - a.rate).slice(0, 5);
+
+    const total = data.logs.length;
+    const done = data.logs.filter((l) => {
+      const habit = habitMap.get(l.habitId);
+      if (!habit) return false;
+      return typeof l.value === 'boolean' ? l.value : l.value >= habit.target;
+    }).length;
+    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    const best = data.habits.reduce((max, h) => Math.max(max, h.longestStreak || 0), 0);
+    const bestHabit = data.habits.find((h) => (h.longestStreak || 0) === best);
+
+    return { habitStats: stats, topHabits: top, totalLogs: total, completedLogs: done, overallRate: rate, bestStreak: best, bestStreakHabit: bestHabit };
+  }, [data]);
 
   return (
     <div className="space-y-5">

@@ -88,7 +88,7 @@ class SharedHabitService {
     } catch (err) {
       // Handle race condition: another request created it first
       if (err.code === 11000) {
-        shared = await SharedHabit.findOne({ habitId });
+        shared = await SharedHabit.findOne({ habitId, isActive: true });
         if (shared) return shared;
       }
       throw err;
@@ -119,14 +119,15 @@ class SharedHabitService {
         alreadyJoined.status = 'accepted';
         alreadyJoined.joinedAt = new Date();
         await shared.save();
+        cache.delByPrefix(`habits:${userId}`);
         return shared;
       }
       if (alreadyJoined.status === 'declined') {
-        // Allow re-joining — reset role to default 'member'
+        // Allow re-joining without rewriting the previously assigned role.
         alreadyJoined.status = 'accepted';
-        alreadyJoined.role = 'member';
         alreadyJoined.joinedAt = new Date();
         await shared.save();
+        cache.delByPrefix(`habits:${userId}`);
         return shared;
       }
     }
@@ -187,26 +188,25 @@ class SharedHabitService {
 
     await shared.save();
 
-    // Send invite email (non-blocking — don't fail the invite if email fails)
-    let emailSent = false;
-    let emailError = null;
-    try {
-      const inviter = await User.findById(requesterId, 'name');
-      const habit = await Habit.findById(habitId, 'name');
-      await emailService.sendHabitInviteEmail(
-        targetUser.email,
-        targetUser.name,
-        inviter?.name || 'Someone',
-        habit?.name || 'a habit',
-        shared.inviteCode
-      );
-      emailSent = emailService.isConfigured; // only truly sent if SMTP is configured
-    } catch (emailErr) {
-      console.error('Failed to send invite email:', emailErr.message);
-      emailError = emailErr.message;
+    // Send invite email asynchronously — don't block the response
+    if (emailService.isConfigured) {
+      Promise.all([
+        User.findById(requesterId, 'name'),
+        Habit.findById(habitId, 'name'),
+      ]).then(([inviter, habit]) =>
+        emailService.sendHabitInviteEmail(
+          targetUser.email,
+          targetUser.name,
+          inviter?.name || 'Someone',
+          habit?.name || 'a habit',
+          shared.inviteCode
+        )
+      ).catch((emailErr) => {
+        console.error('Failed to send invite email:', emailErr.message, emailErr.stack);
+      });
     }
 
-    return { shared, emailSent, emailError };
+    return { shared, emailSent: emailService.isConfigured, emailError: emailService.isConfigured ? null : 'Email service not configured (SMTP settings missing)' };
   }
 
   // ─── Respond to Invite ──────────────────────────────────────────────
@@ -298,6 +298,7 @@ class SharedHabitService {
     member.role = newRole;
     await shared.save();
 
+    cache.delByPrefix(`habits:${targetUserId}`);
     return shared;
   }
 
@@ -403,7 +404,6 @@ class SharedHabitService {
     // Any member or owner can view
     const role = this._getRole(shared, requesterId);
     if (!role) {
-      console.warn(`[getSharingInfo] Access denied: user=${requesterId}, habitId=${habitId}, ownerId=${this._toId(shared.ownerId)}, members=${shared.sharedWith.map(m => ({ id: this._toId(m.userId), status: m.status }))}`);
       throw new AppError('You do not have access to this shared habit', 403);
     }
 
@@ -466,7 +466,6 @@ class SharedHabitService {
     const shared = await SharedHabit.findOne({ habitId: hid, isActive: true });
 
     if (!shared) {
-      console.log(`[SharedHabit] No active SharedHabit found for habitId=${habitId}`);
       return null;
     }
 
@@ -476,12 +475,48 @@ class SharedHabitService {
     const member = shared.sharedWith.find(
       (m) => m.userId.toString() === uid && m.status === 'accepted'
     );
-    if (!member) {
-      console.log(`[SharedHabit] User ${uid} not found in sharedWith for habit ${habitId}. Members:`,
-        shared.sharedWith.map(m => ({ uid: m.userId.toString(), status: m.status, role: m.role }))
-      );
-    }
     return member ? member.role : null;
+  }
+
+  // ─── Get Habits Shared BY User (owner view) ────────────────────────
+
+  async getHabitsSharedByUser(ownerId) {
+    const sharedHabits = await SharedHabit.find({
+      ownerId,
+      isActive: true,
+    })
+      .populate({
+        path: 'habitId',
+        select: 'name icon color type unit target frequency category isArchived',
+        match: { isArchived: false },
+      })
+      .populate('sharedWith.userId', 'name email avatar');
+
+    // Filter out entries where the habit was archived (populated as null)
+    return sharedHabits.filter((sh) => sh.habitId != null);
+  }
+
+  // ─── Get Invite Preview (public — no auth needed) ─────────────────
+
+  async getInvitePreview(inviteCode) {
+    const shared = await SharedHabit.findOne({ inviteCode, isActive: true })
+      .populate('habitId', 'name icon color type')
+      .populate('ownerId', 'name');
+
+    if (!shared || !shared.habitId) {
+      throw new AppError('Invalid or expired invite link', 404);
+    }
+
+    const acceptedCount = shared.sharedWith.filter((m) => m.status === 'accepted').length;
+
+    return {
+      habitName: shared.habitId.name,
+      habitIcon: shared.habitId.icon,
+      habitColor: shared.habitId.color,
+      habitType: shared.habitId.type,
+      ownerName: shared.ownerId?.name || 'Unknown',
+      memberCount: acceptedCount + 1, // +1 for owner
+    };
   }
 
   // ─── Get habits shared with a user that are scheduled for a given day ─

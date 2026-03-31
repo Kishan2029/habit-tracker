@@ -1,10 +1,11 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 const mockSendNotification = jest.fn();
+const mockSetVapidDetails = jest.fn();
 
 jest.unstable_mockModule('web-push', () => ({
   default: {
-    setVapidDetails: jest.fn(),
+    setVapidDetails: mockSetVapidDetails,
     sendNotification: mockSendNotification,
   },
 }));
@@ -23,30 +24,35 @@ jest.unstable_mockModule('../../config/env.js', () => ({
     vapid: {
       publicKey: 'test-public-key',
       privateKey: 'test-private-key',
-      email: 'mailto:test@test.com',
+      email: 'mailto:admin@test.com',
     },
   },
 }));
 
 const { default: PushSubscription } = await import('../../models/PushSubscription.js');
-const PushServiceModule = await import('../../services/pushService.js');
-const pushService = PushServiceModule.default;
+const { default: pushService } = await import('../../services/pushService.js');
 
 describe('PushService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+  describe('constructor', () => {
+    it('should be configured when VAPID keys are present', () => {
+      expect(pushService.isConfigured).toBe(true);
+    });
+  });
+
   describe('subscribe', () => {
     it('should upsert push subscription', async () => {
-      const sub = { endpoint: 'https://push.example.com', keys: {} };
-      PushSubscription.findOneAndUpdate.mockResolvedValue({ userId: 'u1', subscription: sub });
+      const subscription = { endpoint: 'https://push.example.com', keys: {} };
+      PushSubscription.findOneAndUpdate.mockResolvedValue({});
 
-      await pushService.subscribe('u1', sub);
+      await pushService.subscribe('u1', subscription);
 
       expect(PushSubscription.findOneAndUpdate).toHaveBeenCalledWith(
         { userId: 'u1' },
-        { userId: 'u1', subscription: sub },
+        { userId: 'u1', subscription },
         { upsert: true, new: true }
       );
     });
@@ -68,12 +74,25 @@ describe('PushService', () => {
       PushSubscription.findOne.mockResolvedValue(sub);
       mockSendNotification.mockResolvedValue({});
 
-      await pushService.sendNotification('u1', { title: 'Test' });
+      const payload = { title: 'Test', body: 'Hello' };
+      await pushService.sendNotification('u1', payload);
 
       expect(mockSendNotification).toHaveBeenCalledWith(
         sub.subscription,
-        JSON.stringify({ title: 'Test' })
+        JSON.stringify(payload)
       );
+    });
+
+    it('should do nothing if not configured', async () => {
+      const originalConfigured = pushService.isConfigured;
+      try {
+        pushService.isConfigured = false;
+        await pushService.sendNotification('u1', { title: 'Test' });
+
+        expect(PushSubscription.findOne).not.toHaveBeenCalled();
+      } finally {
+        pushService.isConfigured = originalConfigured;
+      }
     });
 
     it('should do nothing if no subscription found', async () => {
@@ -84,11 +103,13 @@ describe('PushService', () => {
       expect(mockSendNotification).not.toHaveBeenCalled();
     });
 
-    it('should remove subscription on 410 error', async () => {
+    it('should clean up subscription on 410 error', async () => {
       PushSubscription.findOne.mockResolvedValue({
         subscription: { endpoint: 'https://push.example.com' },
       });
-      mockSendNotification.mockRejectedValue({ statusCode: 410 });
+      const error = new Error('Gone');
+      error.statusCode = 410;
+      mockSendNotification.mockRejectedValue(error);
       PushSubscription.findOneAndDelete.mockResolvedValue({});
 
       await pushService.sendNotification('u1', { title: 'Test' });
@@ -96,42 +117,73 @@ describe('PushService', () => {
       expect(PushSubscription.findOneAndDelete).toHaveBeenCalledWith({ userId: 'u1' });
     });
 
-    it('should remove subscription on 404 error', async () => {
+    it('should clean up subscription on 404 error', async () => {
       PushSubscription.findOne.mockResolvedValue({
         subscription: { endpoint: 'https://push.example.com' },
       });
-      mockSendNotification.mockRejectedValue({ statusCode: 404 });
+      const error = new Error('Not Found');
+      error.statusCode = 404;
+      mockSendNotification.mockRejectedValue(error);
       PushSubscription.findOneAndDelete.mockResolvedValue({});
 
       await pushService.sendNotification('u1', { title: 'Test' });
 
       expect(PushSubscription.findOneAndDelete).toHaveBeenCalledWith({ userId: 'u1' });
+    });
+
+    it('should not clean up on other errors', async () => {
+      PushSubscription.findOne.mockResolvedValue({
+        subscription: { endpoint: 'https://push.example.com' },
+      });
+      const error = new Error('Server error');
+      error.statusCode = 500;
+      mockSendNotification.mockRejectedValue(error);
+
+      await pushService.sendNotification('u1', { title: 'Test' });
+
+      expect(PushSubscription.findOneAndDelete).not.toHaveBeenCalled();
     });
   });
 
   describe('sendToAll', () => {
-    it('should send to all subscribers', async () => {
+    it('should send notifications to all subscribers', async () => {
       const subs = [
-        { _id: 's1', subscription: { endpoint: 'https://push1.com' } },
-        { _id: 's2', subscription: { endpoint: 'https://push2.com' } },
+        { _id: 's1', subscription: { endpoint: 'https://push1.example.com' } },
+        { _id: 's2', subscription: { endpoint: 'https://push2.example.com' } },
       ];
       PushSubscription.find.mockResolvedValue(subs);
       mockSendNotification.mockResolvedValue({});
 
-      await pushService.sendToAll({ title: 'Broadcast' });
+      const payload = { title: 'Test' };
+      const results = await pushService.sendToAll(payload);
 
       expect(mockSendNotification).toHaveBeenCalledTimes(2);
+      expect(results).toHaveLength(2);
     });
 
-    it('should remove expired subscriptions during broadcast', async () => {
+    it('should do nothing if not configured', async () => {
+      const originalConfigured = pushService.isConfigured;
+      try {
+        pushService.isConfigured = false;
+        await pushService.sendToAll({ title: 'Test' });
+
+        expect(PushSubscription.find).not.toHaveBeenCalled();
+      } finally {
+        pushService.isConfigured = originalConfigured;
+      }
+    });
+
+    it('should clean up expired subscriptions during sendToAll', async () => {
       const subs = [
-        { _id: 's1', subscription: { endpoint: 'https://push1.com' } },
+        { _id: 's1', subscription: { endpoint: 'https://push1.example.com' } },
       ];
       PushSubscription.find.mockResolvedValue(subs);
-      mockSendNotification.mockRejectedValue({ statusCode: 410 });
+      const error = new Error('Gone');
+      error.statusCode = 410;
+      mockSendNotification.mockRejectedValue(error);
       PushSubscription.findOneAndDelete.mockResolvedValue({});
 
-      await pushService.sendToAll({ title: 'Broadcast' });
+      await pushService.sendToAll({ title: 'Test' });
 
       expect(PushSubscription.findOneAndDelete).toHaveBeenCalledWith({ _id: 's1' });
     });

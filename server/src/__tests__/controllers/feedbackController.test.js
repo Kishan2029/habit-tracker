@@ -34,8 +34,8 @@ describe('FeedbackController', () => {
 
   describe('submitFeedback', () => {
     it('should create feedback and return 201', async () => {
-      const feedback = { _id: 'f1' };
-      Feedback.create.mockResolvedValue(feedback);
+      const mockFeedback = { _id: 'f1' };
+      Feedback.create.mockResolvedValue(mockFeedback);
       emailService.sendFeedbackNotification.mockResolvedValue();
 
       const req = {
@@ -53,23 +53,11 @@ describe('FeedbackController', () => {
       });
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { id: 'f1' } })
-      );
-    });
-
-    it('should fire-and-forget email notification', async () => {
-      Feedback.create.mockResolvedValue({ _id: 'f1' });
-      emailService.sendFeedbackNotification.mockResolvedValue();
-
-      const req = {
-        body: { mood: 'sad', message: 'Bug found', page: 'settings' },
-        user: { _id: 'u1', name: 'Jane', email: 'jane@test.com' },
-      };
-
-      await submitFeedback(req, res, next);
-
-      expect(emailService.sendFeedbackNotification).toHaveBeenCalledWith(
-        'Jane', 'jane@test.com', 'sad', 'Bug found', 'settings'
+        expect.objectContaining({
+          success: true,
+          message: 'Thank you for your feedback!',
+          data: { id: 'f1' },
+        })
       );
     });
 
@@ -78,13 +66,48 @@ describe('FeedbackController', () => {
       emailService.sendFeedbackNotification.mockRejectedValue(new Error('SMTP down'));
 
       const req = {
-        body: { mood: 'neutral', message: 'OK' },
-        user: { _id: 'u1', name: 'Joe', email: 'joe@test.com' },
+        body: { mood: 'sad', message: 'Bug found', page: 'habits' },
+        user: { _id: 'u1', name: 'John', email: 'john@test.com' },
       };
 
       await submitFeedback(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(201);
+    });
+
+    it('should send email notification with correct parameters', async () => {
+      Feedback.create.mockResolvedValue({ _id: 'f1' });
+      emailService.sendFeedbackNotification.mockResolvedValue();
+
+      const req = {
+        body: { mood: 'loved', message: 'Amazing!', page: 'settings' },
+        user: { _id: 'u1', name: 'Alice', email: 'alice@test.com' },
+      };
+
+      await submitFeedback(req, res, next);
+
+      expect(emailService.sendFeedbackNotification).toHaveBeenCalledWith(
+        'Alice', 'alice@test.com', 'loved', 'Amazing!', 'settings'
+      );
+    });
+
+    it('should pass errors to next via catchAsync', async () => {
+      const error = new Error('DB error');
+      Feedback.create.mockRejectedValue(error);
+
+      const req = {
+        body: { mood: 'happy', message: 'test', page: 'home' },
+        user: { _id: 'u1', name: 'John', email: 'john@test.com' },
+      };
+
+      await new Promise((resolve) => {
+        submitFeedback(req, res, (err) => {
+          next(err);
+          resolve();
+        });
+      });
+
+      expect(next).toHaveBeenCalledWith(error);
     });
   });
 });

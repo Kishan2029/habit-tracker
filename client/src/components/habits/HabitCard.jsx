@@ -1,4 +1,5 @@
 import Card from '../ui/Card';
+import SharedBadge from '../ui/SharedBadge';
 import { getCategoryConfig } from '../../config/categories';
 
 export default function HabitCard({ habit, onEdit, onArchive, onDelete, onShare }) {
@@ -16,7 +17,14 @@ export default function HabitCard({ habit, onEdit, onArchive, onDelete, onShare 
             {habit.icon}
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h3>
+              {habit.isShared && (
+                <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium">
+                  👥 {habit.memberCount > 0 ? `${habit.memberCount} member${habit.memberCount !== 1 ? 's' : ''}` : 'Shared'}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {habit.type === 'count'
                 ? `${habit.target} ${habit.unit || 'units'} / day`
@@ -28,8 +36,12 @@ export default function HabitCard({ habit, onEdit, onArchive, onDelete, onShare 
           <button
             disabled={habit.isArchived}
             onClick={() => onShare(habit)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
-            title={habit.isArchived ? 'Unarchive before sharing' : 'Share'}
+            className={`p-1.5 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400 ${
+              habit.isShared
+                ? 'text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400'
+            }`}
+            title={habit.isArchived ? 'Unarchive before sharing' : habit.isShared ? 'Manage sharing' : 'Share'}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
