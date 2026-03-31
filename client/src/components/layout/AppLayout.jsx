@@ -8,7 +8,7 @@ export default function AppLayout() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex overflow-hidden">
       <Sidebar
         isMobileOpen={isMobileOpen}
         onClose={() => setIsMobileOpen(false)}
