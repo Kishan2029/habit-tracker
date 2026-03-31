@@ -48,6 +48,18 @@ export default function WeeklyView() {
     }
   }, [weekStart, weekEnd]);
 
+  // Silent refresh — syncs server data without showing loading spinner
+  const silentRefresh = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
+    try {
+      const { data: res } = await getRangeLogs(weekStart, weekEnd);
+      if (fetchId !== fetchIdRef.current) return;
+      setData(res.data);
+    } catch {
+      // Silent — don't show error for background sync
+    }
+  }, [weekStart, weekEnd]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -65,13 +77,31 @@ export default function WeeklyView() {
       newValue = Math.max(0, (currentValue || 0) + delta);
       if (newValue === currentValue) return; // no change
     }
+
+    const prevData = data;
+
+    // Optimistic update — reflect change instantly in the logs array
+    const existingIndex = data.logs.findIndex(
+      (log) => log.habitId === habitId && log.date.split('T')[0] === dateStr
+    );
+    let newLogs;
+    if (existingIndex >= 0) {
+      newLogs = data.logs.map((log, i) =>
+        i === existingIndex ? { ...log, value: newValue } : log
+      );
+    } else {
+      newLogs = [...data.logs, { habitId, date: dateStr, value: newValue }];
+    }
+    setData({ ...data, logs: newLogs });
+
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
-      fetchData();
+      silentRefresh(); // sync from server
     } catch (err) {
+      setData(prevData); // rollback on failure
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  }, [fetchData]);
+  }, [data, silentRefresh]);
 
   const goToPrevWeek = () => setWeekStart(shiftDate(weekStart, -7));
   const goToNextWeek = () => setWeekStart(shiftDate(weekStart, 7));
