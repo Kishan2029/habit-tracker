@@ -6,6 +6,7 @@ import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import Button from '../ui/Button';
+import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -74,10 +75,11 @@ export default function MonthlyAnalytics() {
     let scheduled = 0;
     let completionSum = 0;
     for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr)) continue;
       const dow = new Date(year, month - 1, d).getDay();
       if (!habit.frequency.includes(dow)) continue;
       scheduled++;
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const log = logLookup.get(`${habit._id}-${dateStr}`);
       if (log) {
         if (typeof log.value === 'boolean') {
