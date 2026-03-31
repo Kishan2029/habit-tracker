@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { createHabitRules, updateHabitRules, reorderHabitRules } from '../../validators/habitValidators.js';
-import { runValidation, expectErrors, expectNoErrors } from './helpers.js';
+import { runValidation, expectErrors, expectExactErrors, expectNoErrors } from './helpers.js';
 
 describe('Habit Validators', () => {
   describe('createHabitRules', () => {
@@ -13,7 +13,7 @@ describe('Habit Validators', () => {
 
     it('should reject missing name', async () => {
       const errors = await runValidation(createHabitRules, { body: {} });
-      expectErrors(errors, ['name']);
+      expectExactErrors(errors, ['name']);
     });
 
     it('should reject name longer than 100 characters', async () => {

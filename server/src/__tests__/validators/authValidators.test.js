@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { registerRules, loginRules, forgotPasswordRules, resetPasswordRules, changePasswordRules } from '../../validators/authValidators.js';
-import { runValidation, expectErrors, expectNoErrors } from './helpers.js';
+import { runValidation, expectErrors, expectExactErrors, expectNoErrors } from './helpers.js';
 
 describe('Auth Validators', () => {
   describe('registerRules', () => {
@@ -13,7 +13,7 @@ describe('Auth Validators', () => {
 
     it('should reject missing name, email, and password', async () => {
       const errors = await runValidation(registerRules, { body: {} });
-      expectErrors(errors, ['name', 'email', 'password']);
+      expectExactErrors(errors, ['name', 'email', 'password']);
     });
 
     it('should reject invalid email format', async () => {
@@ -48,7 +48,7 @@ describe('Auth Validators', () => {
 
     it('should reject missing email and password', async () => {
       const errors = await runValidation(loginRules, { body: {} });
-      expectErrors(errors, ['email', 'password']);
+      expectExactErrors(errors, ['email', 'password']);
     });
   });
 
@@ -106,7 +106,7 @@ describe('Auth Validators', () => {
 
     it('should reject missing current and new passwords', async () => {
       const errors = await runValidation(changePasswordRules, { body: {} });
-      expectErrors(errors, ['currentPassword', 'newPassword']);
+      expectExactErrors(errors, ['currentPassword', 'newPassword']);
     });
 
     it('should reject short new password', async () => {

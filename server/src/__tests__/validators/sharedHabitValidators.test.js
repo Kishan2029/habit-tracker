@@ -9,7 +9,7 @@ import {
   habitIdParamRules,
   removeMemberRules,
 } from '../../validators/sharedHabitValidators.js';
-import { runValidation, expectErrors, expectNoErrors } from './helpers.js';
+import { runValidation, expectErrors, expectExactErrors, expectNoErrors } from './helpers.js';
 
 const VALID_MONGO_ID = '507f1f77bcf86cd799439011';
 const VALID_MONGO_ID_2 = '507f1f77bcf86cd799439012';

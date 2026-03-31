@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { exportRules } from '../../validators/exportValidators.js';
-import { runValidation, expectErrors, expectNoErrors } from './helpers.js';
+import { runValidation, expectErrors, expectExactErrors, expectNoErrors } from './helpers.js';
 
 describe('Export Validators', () => {
   describe('exportRules', () => {
@@ -13,14 +13,14 @@ describe('Export Validators', () => {
 
     it('should reject missing start and end', async () => {
       const errors = await runValidation(exportRules, { query: {} });
-      expectErrors(errors, ['start', 'end']);
+      expectExactErrors(errors, ['start', 'end']);
     });
 
     it('should reject invalid date formats', async () => {
       const errors = await runValidation(exportRules, {
         query: { start: '01-01-2024', end: '2024/12/31' },
       });
-      expectErrors(errors, ['start', 'end']);
+      expectExactErrors(errors, ['start', 'end']);
     });
   });
 });

@@ -20,6 +20,11 @@ export function expectErrors(errors, fields) {
   }
 }
 
+export function expectExactErrors(errors, fields) {
+  const uniquePaths = [...new Set(errors.map((e) => e.path))].sort();
+  expect(uniquePaths).toEqual([...fields].sort());
+}
+
 export function expectNoErrors(errors) {
   expect(errors).toHaveLength(0);
 }

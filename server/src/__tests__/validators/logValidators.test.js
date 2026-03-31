@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { createLogRules, dailyQueryRules, monthlyQueryRules, yearlyQueryRules, rangeQueryRules } from '../../validators/logValidators.js';
-import { runValidation, expectErrors, expectNoErrors } from './helpers.js';
+import { runValidation, expectErrors, expectExactErrors, expectNoErrors } from './helpers.js';
 
 const VALID_MONGO_ID = '507f1f77bcf86cd799439011';
 
@@ -22,7 +22,7 @@ describe('Log Validators', () => {
 
     it('should reject missing required fields', async () => {
       const errors = await runValidation(createLogRules, { body: {} });
-      expectErrors(errors, ['habitId', 'date', 'value']);
+      expectExactErrors(errors, ['habitId', 'date', 'value']);
     });
 
     it('should reject invalid MongoDB ID', async () => {
@@ -115,7 +115,7 @@ describe('Log Validators', () => {
 
     it('should reject missing start and end', async () => {
       const errors = await runValidation(rangeQueryRules, { query: {} });
-      expectErrors(errors, ['start', 'end']);
+      expectExactErrors(errors, ['start', 'end']);
     });
   });
 });
