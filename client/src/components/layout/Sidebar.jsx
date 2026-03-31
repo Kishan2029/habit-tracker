@@ -26,7 +26,7 @@ export default function Sidebar({ isMobileOpen, onClose }) {
         <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />
       )}
       <aside
-        className={`fixed top-0 left-0 h-full w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transform transition-transform duration-200 md:translate-x-0 md:static md:z-auto ${
+        className={`fixed top-0 left-0 h-full w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-50 transform transition-transform duration-200 md:translate-x-0 md:static md:z-auto flex flex-col ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -35,7 +35,7 @@ export default function Sidebar({ isMobileOpen, onClose }) {
             <span>Habit Tracker</span>
           </h1>
         </div>
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 overflow-y-auto flex-1">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
