@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -32,8 +33,15 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
     const dayOfWeek = new Date(year, month - 1, d).getDay();
 
     const relevantHabits = selectedHabitId
-      ? habits.filter((h) => h._id === selectedHabitId && h.frequency.includes(dayOfWeek))
-      : habits.filter((h) => h.frequency.includes(dayOfWeek));
+      ? habits.filter(
+          (h) =>
+            h._id === selectedHabitId &&
+            wasHabitCreatedOnOrBefore(h.createdAt, dateStr) &&
+            h.frequency.includes(dayOfWeek)
+        )
+      : habits.filter(
+          (h) => wasHabitCreatedOnOrBefore(h.createdAt, dateStr) && h.frequency.includes(dayOfWeek)
+        );
 
     // Proportional completion: count habits give partial credit (e.g. 8/10 = 0.8)
     let completionSum = 0;

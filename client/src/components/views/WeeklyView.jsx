@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
+import { getHabitCreatedDateString, wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 import SharedBadge from '../ui/SharedBadge';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
@@ -163,6 +164,7 @@ export default function WeeklyView() {
           <tbody>
             {data.habits.map((habit) => {
               const cat = getCategoryConfig(habit.category);
+              const createdDate = getHabitCreatedDateString(habit.createdAt);
               return (
                 <tr key={habit._id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${habit.isShared ? (habit.myRole === 'owner' ? 'bg-indigo-50/30 dark:bg-indigo-900/5' : 'bg-purple-50/30 dark:bg-purple-900/5') : ''}`}>
                   <td className="py-3 px-4">
@@ -179,13 +181,27 @@ export default function WeeklyView() {
                   </td>
                   {weekDays.map((d) => {
                     const dayOfWeek = parseLocalDate(d).getDay();
-                    const isScheduled = habit.frequency.includes(dayOfWeek);
+                    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, d);
+                    const isScheduled = existsOnDate && habit.frequency.includes(dayOfWeek);
                     const isFuture = d > today;
                     const log = logMap.get(`${habit._id}-${d}`);
                     const value = log?.value;
                     const isCompleted = value
                       ? typeof value === 'boolean' ? value : value >= habit.target
                       : false;
+
+                    if (!existsOnDate) {
+                      return (
+                        <td key={d} className="py-3 px-2 text-center">
+                          <span
+                            className="text-gray-300 dark:text-gray-600"
+                            title={createdDate ? `Created on ${createdDate}` : 'Habit not created yet'}
+                          >
+                            -
+                          </span>
+                        </td>
+                      );
+                    }
 
                     if (!isScheduled) {
                       return (
