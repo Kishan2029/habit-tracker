@@ -21,15 +21,15 @@ function isCompleted(log, habit) {
   return typeof log.value === 'boolean' ? log.value : log.value >= habit.target;
 }
 
-function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds) {
+function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds, activeFilter) {
   return {
     ...baseFilter,
     createdAt: { $lte: cutoffDate },
-    $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
+    $or: [activeFilter, { _id: { $in: loggedHabitIds } }],
   };
 }
 
-function getCreatedDateString(createdAt) {
+function getUTCDateString(createdAt) {
   if (!createdAt) return null;
   if (typeof createdAt === 'string') return createdAt.slice(0, 10);
 
@@ -39,7 +39,7 @@ function getCreatedDateString(createdAt) {
 }
 
 function isHabitActiveOnDate(habit, dateStr) {
-  const createdDate = getCreatedDateString(habit.createdAt);
+  const createdDate = getUTCDateString(habit.createdAt);
   return !createdDate || dateStr >= createdDate;
 }
 
@@ -54,7 +54,7 @@ class ExportService {
     const loggedHabitIds = [...new Set(logs.map((log) => log.habitId.toString()))];
 
     const ownHabits = await Habit.find(
-      buildVisibleHabitQuery({ userId }, end, loggedHabitIds)
+      buildVisibleHabitQuery({ userId }, end, loggedHabitIds, { isArchived: false })
     ).sort({ sortOrder: 1 });
 
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
@@ -63,7 +63,12 @@ class ExportService {
 
     if (sharedHabitIds.length > 0) {
       sharedHabits = await Habit.find(
-        buildVisibleHabitQuery({ _id: { $in: sharedHabitIds } }, end, loggedHabitIds)
+        buildVisibleHabitQuery(
+          { _id: { $in: sharedHabitIds } },
+          end,
+          loggedHabitIds,
+          { isArchived: false }
+        )
       ).sort({ createdAt: -1 });
     }
 

@@ -200,9 +200,7 @@ export default function MonthlyGridView() {
                 className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs transition relative ${
                   isToday ? 'ring-2 ring-indigo-500' : ''
                 } ${
-                  !existsOnDate
-                    ? 'text-gray-300 dark:text-gray-600 cursor-default'
-                    : !isScheduled
+                  (!existsOnDate || !isScheduled)
                     ? 'text-gray-300 dark:text-gray-600 cursor-default'
                     : isCompleted
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
