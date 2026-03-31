@@ -92,7 +92,7 @@ export default function MonthlyAnalytics() {
   });
 
   const totalScheduled = habitStats.reduce((s, h) => s + h.scheduled, 0);
-  const totalCompleted = habitStats.reduce((s, h) => s + h.completed, 0);
+  const totalCompleted = Math.round(habitStats.reduce((s, h) => s + h.completed, 0) * 10) / 10;
   const completionRate = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
   const bestHabit = habitStats.length > 0 ? habitStats.reduce((a, b) => a.rate > b.rate ? a : b) : null;
 
