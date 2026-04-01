@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
+import { useAuth } from '../../context/AuthContext';
 import { getCategoryConfig } from '../../config/categories';
 import { getHabitCreatedDateString, wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 import SharedBadge from '../ui/SharedBadge';
@@ -24,8 +25,12 @@ function getWeekDays(startStr) {
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function WeeklyView() {
+  const { user } = useAuth();
   const today = getLocalDateString();
-  const [weekStart, setWeekStart] = useState(getWeekStart(today));
+  const accountCreated = user?.createdAt ? getLocalDateString(new Date(user.createdAt)) : null;
+  const currentWeekStart = getWeekStart(today);
+  const minWeekStart = accountCreated ? getWeekStart(accountCreated) : null;
+  const [weekStart, setWeekStart] = useState(currentWeekStart);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const fetchIdRef = useRef(0);
@@ -104,9 +109,11 @@ export default function WeeklyView() {
     }
   }, [data, silentRefresh]);
 
-  const goToPrevWeek = () => setWeekStart(shiftDate(weekStart, -7));
-  const goToNextWeek = () => setWeekStart(shiftDate(weekStart, 7));
-  const goToThisWeek = () => setWeekStart(getWeekStart(today));
+  const canGoPrev = !minWeekStart || shiftDate(weekStart, -7) >= minWeekStart;
+  const canGoNext = weekStart < currentWeekStart;
+  const goToPrevWeek = () => canGoPrev && setWeekStart(shiftDate(weekStart, -7));
+  const goToNextWeek = () => canGoNext && setWeekStart(shiftDate(weekStart, 7));
+  const goToThisWeek = () => setWeekStart(currentWeekStart);
 
   if (loading) return <LoadingSpinner />;
 
@@ -136,15 +143,23 @@ export default function WeeklyView() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Weekly View</h1>
         <div className="flex items-center gap-2">
-          <button onClick={goToPrevWeek} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <button onClick={goToThisWeek} className="px-3 py-1 rounded-lg text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition">
-            This Week
-          </button>
-          <button onClick={goToNextWeek} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
+          {(() => {
+            const enabledNav = 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300';
+            const disabledNav = 'text-gray-300 dark:text-gray-600 cursor-not-allowed';
+            return (
+              <>
+                <button onClick={goToPrevWeek} disabled={!canGoPrev} className={`p-2 rounded-lg transition ${canGoPrev ? enabledNav : disabledNav}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button onClick={goToThisWeek} className="px-3 py-1 rounded-lg text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition">
+                  This Week
+                </button>
+                <button onClick={goToNextWeek} disabled={!canGoNext} className={`p-2 rounded-lg transition ${canGoNext ? enabledNav : disabledNav}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
 

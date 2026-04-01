@@ -40,6 +40,7 @@ class AuthService {
         role: userObj.role,
         avatar: userObj.avatar,
         settings: userObj.settings,
+        createdAt: userObj.createdAt,
       },
       token,
     };
@@ -67,6 +68,7 @@ class AuthService {
         role: userObj.role,
         avatar: userObj.avatar,
         settings: userObj.settings,
+        createdAt: userObj.createdAt,
       },
       token,
     };

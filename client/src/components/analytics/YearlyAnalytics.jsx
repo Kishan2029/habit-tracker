@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getYearlyLogs } from '../../api/logApi';
+import { useAuth } from '../../context/AuthContext';
 import CompletionChart from './CompletionChart';
 import YearlyHeatmap from './YearlyHeatmap';
 import HabitSelector from './HabitSelector';
@@ -9,7 +10,10 @@ import LoadingSpinner from '../ui/LoadingSpinner';
 import Button from '../ui/Button';
 
 export default function YearlyAnalytics() {
-  const [year, setYear] = useState(new Date().getFullYear());
+  const { user } = useAuth();
+  const currentYear = new Date().getFullYear();
+  const minYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : null;
+  const [year, setYear] = useState(currentYear);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
@@ -90,13 +94,13 @@ export default function YearlyAnalytics() {
     <div className="space-y-5">
       {/* Year navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => setYear(year - 1)}>
+        <Button variant="ghost" size="sm" onClick={() => setYear(year - 1)} disabled={minYear != null && year <= minYear}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Button>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{year}</h3>
-        <Button variant="ghost" size="sm" onClick={() => setYear(year + 1)}>
+        <Button variant="ghost" size="sm" onClick={() => setYear(year + 1)} disabled={year >= currentYear}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
