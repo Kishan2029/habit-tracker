@@ -37,6 +37,7 @@ class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        createdAt: user.createdAt,
       },
       token,
     };
@@ -61,6 +62,7 @@ class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        createdAt: user.createdAt,
       },
       token,
     };

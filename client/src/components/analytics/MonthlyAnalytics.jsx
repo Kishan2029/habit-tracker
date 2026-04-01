@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getMonthlyLogs } from '../../api/logApi';
 import { useAuth } from '../../context/AuthContext';
+import { getLocalDateString } from '../../utils/dateUtils';
 import CalendarHeatmap from './CalendarHeatmap';
 import HabitSelector from './HabitSelector';
 import Card from '../ui/Card';
@@ -16,9 +17,9 @@ const MONTH_NAMES = [
 export default function MonthlyAnalytics() {
   const { user } = useAuth();
   const now = new Date();
-  const createdDate = user?.createdAt ? new Date(user.createdAt) : null;
-  const minMonth = createdDate ? createdDate.getMonth() + 1 : null;
-  const minYear = createdDate ? createdDate.getFullYear() : null;
+  const createdDateStr = user?.createdAt ? getLocalDateString(new Date(user.createdAt)) : null;
+  const minMonth = createdDateStr ? Number(createdDateStr.split('-')[1]) : null;
+  const minYear = createdDateStr ? Number(createdDateStr.split('-')[0]) : null;
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState(null);
