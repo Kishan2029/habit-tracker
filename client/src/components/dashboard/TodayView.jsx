@@ -46,6 +46,18 @@ export default function TodayView() {
     }
   }, [date]);
 
+  // Silent refresh — syncs server data (streaks) without showing loading spinner
+  const silentRefresh = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
+    try {
+      const { data: res } = await getDailyLogs(date);
+      if (fetchId !== fetchIdRef.current) return;
+      setData(res.data);
+    } catch {
+      // Silent — don't show error for background sync
+    }
+  }, [date]);
+
   // Reset confetti tracking when date changes (navigation)
   useEffect(() => {
     userLoggedRef.current = false;
@@ -65,14 +77,29 @@ export default function TodayView() {
   }, [data]);
 
   const handleLog = async (habitId, value, event) => {
+    const prevData = data;
+
+    // Optimistic update — reflect change instantly
+    const newHabits = data.habits.map((entry) => {
+      if (entry.habit._id !== habitId) return entry;
+      const newLog = { ...(entry.log || {}), value };
+      const newIsCompleted =
+        entry.habit.type === 'boolean' ? !!value : value >= entry.habit.target;
+      return { ...entry, log: newLog, isCompleted: newIsCompleted };
+    });
+    const newCompleted = newHabits.filter((h) => h.isCompleted).length;
+    setData({ ...data, habits: newHabits, completed: newCompleted });
+
+    userLoggedRef.current = true;
+    if (event && value === true) {
+      triggerMiniConfetti(event.clientX, event.clientY);
+    }
+
     try {
       await createLog({ habitId, date, value });
-      userLoggedRef.current = true; // mark that this data refresh is from a user action
-      if (event && value === true) {
-        triggerMiniConfetti(event.clientX, event.clientY);
-      }
-      fetchData();
+      silentRefresh(); // sync streaks from server
     } catch (err) {
+      setData(prevData); // rollback on failure
       const msg = err.response?.data?.message || 'Failed to save log';
       console.error('Log error:', err.response?.data || err.message);
       toast.error(msg);

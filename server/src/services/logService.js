@@ -18,6 +18,23 @@ import {
 } from '../utils/dateHelpers.js';
 import { MAX_BACKDATE_DAYS } from '../config/constants.js';
 
+function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds, activeFilter) {
+  return {
+    ...baseFilter,
+    createdAt: { $lte: cutoffDate },
+    $or: [activeFilter, { _id: { $in: loggedHabitIds } }],
+  };
+}
+
+function getUTCDateString(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
 class LogService {
   _getLoggedHabitIds(logs) {
     return [...new Set(logs.map((log) => log.habitId.toString()))];
@@ -100,6 +117,10 @@ class LogService {
     if (diff > MAX_BACKDATE_DAYS) {
       throw new AppError(`Cannot backdate more than ${MAX_BACKDATE_DAYS} days`, 400);
     }
+    const habitCreatedDate = getUTCDateString(habit.createdAt);
+    if (habitCreatedDate && logDate < toUTCMidnight(habitCreatedDate)) {
+      throw new AppError('Cannot log before the habit was created', 400);
+    }
 
     const result = await HabitLog.findOneAndUpdate(
       { habitId, userId, date: logDate },
@@ -160,21 +181,23 @@ class LogService {
 
     // Phase 2: Parallel — fetch own habits, shared habits, owner names, and own shared docs
     const [ownHabits, sharedHabits, owners] = await Promise.all([
-      Habit.find({
-        userId,
-        $or: [
-          { isArchived: false, frequency: { $in: [dayOfWeek] } },
-          { _id: { $in: loggedHabitIds } },
-        ],
-      }).sort({ sortOrder: 1, createdAt: -1 }),
+      Habit.find(
+        buildVisibleHabitQuery(
+          { userId },
+          date,
+          loggedHabitIds,
+          { isArchived: false, frequency: { $in: [dayOfWeek] } }
+        )
+      ).sort({ sortOrder: 1, createdAt: -1 }),
       sharedHabitIds.length > 0
-        ? Habit.find({
-            _id: { $in: sharedHabitIds },
-            $or: [
-              { isArchived: false, frequency: { $in: [dayOfWeek] } },
-              { _id: { $in: loggedHabitIds } },
-            ],
-          }).sort({ createdAt: -1 })
+        ? Habit.find(
+            buildVisibleHabitQuery(
+              { _id: { $in: sharedHabitIds } },
+              date,
+              loggedHabitIds,
+              { isArchived: false, frequency: { $in: [dayOfWeek] } }
+            )
+          ).sort({ createdAt: -1 })
         : [],
       ownerIds.length > 0
         ? User.find({ _id: { $in: ownerIds } }, 'name')
@@ -264,20 +287,23 @@ class LogService {
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     // Own habits
-    const ownHabits = await Habit.find({
-      userId,
-      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-    }).sort({ sortOrder: 1, createdAt: -1 });
+    const ownHabits = await Habit.find(
+      buildVisibleHabitQuery({ userId }, end, loggedHabitIds, { isArchived: false })
+    ).sort({ sortOrder: 1, createdAt: -1 });
 
     // Shared habits
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
     const sharedHabitIds = sharedEntries.map((e) => e.habitId);
     let sharedHabits = [];
     if (sharedHabitIds.length > 0) {
-      sharedHabits = await Habit.find({
-        _id: { $in: sharedHabitIds },
-        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-      }).sort({ createdAt: -1 });
+      sharedHabits = await Habit.find(
+        buildVisibleHabitQuery(
+          { _id: { $in: sharedHabitIds } },
+          end,
+          loggedHabitIds,
+          { isArchived: false }
+        )
+      ).sort({ createdAt: -1 });
     }
 
     // Owner names
@@ -334,20 +360,23 @@ class LogService {
     });
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
-    const ownHabits = await Habit.find({
-      userId,
-      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-    });
+    const ownHabits = await Habit.find(
+      buildVisibleHabitQuery({ userId }, endDate, loggedHabitIds, { isArchived: false })
+    );
 
     // Include shared habits
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
     const sharedHabitIds = sharedEntries.map((e) => e.habitId);
     let sharedHabits = [];
     if (sharedHabitIds.length > 0) {
-      sharedHabits = await Habit.find({
-        _id: { $in: sharedHabitIds },
-        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-      });
+      sharedHabits = await Habit.find(
+        buildVisibleHabitQuery(
+          { _id: { $in: sharedHabitIds } },
+          endDate,
+          loggedHabitIds,
+          { isArchived: false }
+        )
+      );
     }
 
     // Build owner map and role map for shared habits
@@ -402,20 +431,23 @@ class LogService {
     });
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
-    const ownHabits = await Habit.find({
-      userId,
-      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-    });
+    const ownHabits = await Habit.find(
+      buildVisibleHabitQuery({ userId }, endDate, loggedHabitIds, { isArchived: false })
+    );
 
     // Include shared habits
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
     const sharedHabitIds = sharedEntries.map((e) => e.habitId);
     let sharedHabits = [];
     if (sharedHabitIds.length > 0) {
-      sharedHabits = await Habit.find({
-        _id: { $in: sharedHabitIds },
-        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-      });
+      sharedHabits = await Habit.find(
+        buildVisibleHabitQuery(
+          { _id: { $in: sharedHabitIds } },
+          endDate,
+          loggedHabitIds,
+          { isArchived: false }
+        )
+      );
     }
 
     // Build owner map and role map for shared habits
@@ -539,17 +571,30 @@ class LogService {
       });
     }
 
-    // Other members
+    // Other members — batch fetch any unpopulated users
+    const populatedMap = new Map();
+    const unpopulatedIds = [];
     for (const member of memberUserIds) {
       const uid = member.userId.toString();
-      // Get populated user data if available, otherwise fetch
       const populatedMember = shared.sharedWith.find(
         (m) => (m.userId._id || m.userId).toString() === uid && m.status === 'accepted'
       );
-      const userInfo = populatedMember?.userId?.name
-        ? populatedMember.userId
-        : await User.findById(uid, 'name email avatar');
+      if (populatedMember?.userId?.name) {
+        populatedMap.set(uid, populatedMember.userId);
+      } else {
+        unpopulatedIds.push(uid);
+      }
+    }
+    if (unpopulatedIds.length > 0) {
+      const fetched = await User.find({ _id: { $in: unpopulatedIds } }, 'name email avatar');
+      for (const u of fetched) {
+        populatedMap.set(u._id.toString(), u);
+      }
+    }
 
+    for (const member of memberUserIds) {
+      const uid = member.userId.toString();
+      const userInfo = populatedMap.get(uid);
       if (!userInfo) continue;
 
       const memberLog = logMap.get(uid);

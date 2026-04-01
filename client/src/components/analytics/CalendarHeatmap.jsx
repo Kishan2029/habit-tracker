@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -17,6 +18,13 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+  // Build a log lookup map: "habitId-YYYY-MM-DD" -> log
+  const logMap = new Map();
+  for (const l of logs) {
+    const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
+    logMap.set(`${l.habitId}-${logDate}`, l);
+  }
+
   const cells = [];
   const dayData = {};
 
@@ -25,20 +33,20 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
     const dayOfWeek = new Date(year, month - 1, d).getDay();
 
     const relevantHabits = selectedHabitId
-      ? habits.filter((h) => h._id === selectedHabitId && h.frequency.includes(dayOfWeek))
-      : habits.filter((h) => h.frequency.includes(dayOfWeek));
-
-    const dayLogs = logs.filter((l) => {
-      const logDate = typeof l.date === 'string' ? l.date.slice(0, 10) : l.date.toISOString().slice(0, 10);
-      if (logDate !== dateStr) return false;
-      if (selectedHabitId) return l.habitId === selectedHabitId;
-      return true;
-    });
+      ? habits.filter(
+          (h) =>
+            h._id === selectedHabitId &&
+            wasHabitCreatedOnOrBefore(h.createdAt, dateStr) &&
+            h.frequency.includes(dayOfWeek)
+        )
+      : habits.filter(
+          (h) => wasHabitCreatedOnOrBefore(h.createdAt, dateStr) && h.frequency.includes(dayOfWeek)
+        );
 
     // Proportional completion: count habits give partial credit (e.g. 8/10 = 0.8)
     let completionSum = 0;
     for (const habit of relevantHabits) {
-      const log = dayLogs.find((l) => l.habitId === habit._id);
+      const log = logMap.get(`${habit._id}-${dateStr}`);
       if (!log) continue;
       if (typeof log.value === 'boolean') {
         completionSum += log.value ? 1 : 0;

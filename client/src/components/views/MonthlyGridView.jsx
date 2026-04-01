@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, parseLocalDate } from '../../utils/dateUtils';
 import { getCategoryConfig } from '../../config/categories';
+import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 import Card from '../ui/Card';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import EmptyState from '../ui/EmptyState';
@@ -56,7 +57,7 @@ export default function MonthlyGridView() {
     fetchData();
   }, [fetchData]);
 
-  const handleToggle = async (habitId, dateStr, currentValue, habit) => {
+  const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit) => {
     if (dateStr > today) return;
     if (habit.isShared && habit.myRole === 'viewer') {
       toast.error('Viewers cannot log shared habits');
@@ -69,7 +70,7 @@ export default function MonthlyGridView() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  };
+  }, [today, fetchData]);
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(year - 1); }
@@ -115,12 +116,13 @@ export default function MonthlyGridView() {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const log = logMap.get(`${habit._id}-${dateStr}`);
     const dayOfWeek = parseLocalDate(dateStr).getDay();
-    const isScheduled = habit.frequency.includes(dayOfWeek);
+    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, dateStr);
+    const isScheduled = existsOnDate && habit.frequency.includes(dayOfWeek);
     const value = log?.value;
     const isCompleted = value
       ? typeof value === 'boolean' ? value : value >= habit.target
       : false;
-    cells.push({ day: d, dateStr, log, isScheduled, value, isCompleted });
+    cells.push({ day: d, dateStr, log, isScheduled, existsOnDate, value, isCompleted });
   }
 
   const completedDays = cells.filter((c) => c?.isCompleted).length;
@@ -185,7 +187,7 @@ export default function MonthlyGridView() {
           ))}
           {cells.map((cell, i) => {
             if (!cell) return <div key={`empty-${i}`} />;
-            const { day, dateStr, isScheduled, value, isCompleted } = cell;
+            const { day, dateStr, isScheduled, existsOnDate, value, isCompleted } = cell;
             const isToday = dateStr === today;
             const isFuture = dateStr > today;
             const canLog = isScheduled && !isFuture;
@@ -198,7 +200,7 @@ export default function MonthlyGridView() {
                 className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs transition relative ${
                   isToday ? 'ring-2 ring-indigo-500' : ''
                 } ${
-                  !isScheduled
+                  (!existsOnDate || !isScheduled)
                     ? 'text-gray-300 dark:text-gray-600 cursor-default'
                     : isCompleted
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
