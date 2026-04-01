@@ -69,6 +69,7 @@ describe('ExportService', () => {
 
       expect(Habit.find).toHaveBeenCalledWith({
         userId: 'user1',
+        createdAt: { $lte: new Date('2025-01-31T00:00:00.000Z') },
         $or: [{ isArchived: false }, { _id: { $in: ['archived1'] } }],
       });
       expect(result.habits).toHaveLength(1);
@@ -135,6 +136,7 @@ describe('ExportService', () => {
             category: 'fitness',
             currentStreak: 5,
             longestStreak: 10,
+            createdAt: new Date('2025-01-01T00:00:00.000Z'),
           },
         ]),
       });
@@ -146,6 +148,39 @@ describe('ExportService', () => {
       expect(result.habitStats[0].daysTracked).toBe(2); // Mon + Tue
       expect(result.habitStats[0].daysCompleted).toBe(1); // Only Monday logged
       expect(result.habitStats[0].completionRate).toBe(50);
+    });
+
+    it('does not count scheduled days before the habit was created', async () => {
+      HabitLog.find.mockReturnValue({
+        sort: jest.fn().mockResolvedValue([
+          {
+            habitId: { toString: () => 'h1' },
+            date: new Date('2025-01-07T00:00:00.000Z'),
+            value: true,
+          },
+        ]),
+      });
+      Habit.find.mockReturnValue({
+        sort: jest.fn().mockResolvedValue([
+          {
+            _id: { toString: () => 'h1' },
+            name: 'Exercise',
+            type: 'boolean',
+            target: 1,
+            frequency: [1, 2, 3, 4, 5],
+            category: 'fitness',
+            currentStreak: 1,
+            longestStreak: 1,
+            createdAt: new Date('2025-01-07T00:00:00.000Z'),
+          },
+        ]),
+      });
+
+      const result = await exportService.getExportData('u1', '2025-01-06', '2025-01-07');
+
+      expect(result.habitStats[0].daysTracked).toBe(1);
+      expect(result.habitStats[0].daysCompleted).toBe(1);
+      expect(result.habitStats[0].completionRate).toBe(100);
     });
 
     it('handles count-type habits with target', async () => {

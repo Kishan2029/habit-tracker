@@ -21,6 +21,28 @@ function isCompleted(log, habit) {
   return typeof log.value === 'boolean' ? log.value : log.value >= habit.target;
 }
 
+function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds, activeFilter) {
+  return {
+    ...baseFilter,
+    createdAt: { $lte: cutoffDate },
+    $or: [activeFilter, { _id: { $in: loggedHabitIds } }],
+  };
+}
+
+function getUTCDateString(createdAt) {
+  if (!createdAt) return null;
+  if (typeof createdAt === 'string') return createdAt.slice(0, 10);
+
+  const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function isHabitActiveOnDate(habit, dateStr) {
+  const createdDate = getUTCDateString(habit.createdAt);
+  return !createdDate || dateStr >= createdDate;
+}
+
 class ExportService {
   async getExportData(userId, startDate, endDate) {
     const start = toUTCMidnight(startDate);
@@ -31,20 +53,23 @@ class ExportService {
     }).sort({ date: 1 });
     const loggedHabitIds = [...new Set(logs.map((log) => log.habitId.toString()))];
 
-    const ownHabits = await Habit.find({
-      userId,
-      $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-    }).sort({ sortOrder: 1 });
+    const ownHabits = await Habit.find(
+      buildVisibleHabitQuery({ userId }, end, loggedHabitIds, { isArchived: false })
+    ).sort({ sortOrder: 1 });
 
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
     const sharedHabitIds = sharedEntries.map((entry) => entry.habitId);
     let sharedHabits = [];
 
     if (sharedHabitIds.length > 0) {
-      sharedHabits = await Habit.find({
-        _id: { $in: sharedHabitIds },
-        $or: [{ isArchived: false }, { _id: { $in: loggedHabitIds } }],
-      }).sort({ createdAt: -1 });
+      sharedHabits = await Habit.find(
+        buildVisibleHabitQuery(
+          { _id: { $in: sharedHabitIds } },
+          end,
+          loggedHabitIds,
+          { isArchived: false }
+        )
+      ).sort({ createdAt: -1 });
     }
 
     const habits = [...ownHabits, ...sharedHabits];
@@ -71,6 +96,7 @@ class ExportService {
       let daysTracked = 0;
       let daysCompleted = 0;
       for (const dateStr of dates) {
+        if (!isHabitActiveOnDate(habit, dateStr)) continue;
         const dayOfWeek = new Date(dateStr + 'T00:00:00Z').getUTCDay();
         if (!habit.frequency.includes(dayOfWeek)) continue;
         daysTracked++;
@@ -175,6 +201,7 @@ class ExportService {
       const weekNum = getWeekNumber(d);
 
       for (const habit of habits) {
+        if (!isHabitActiveOnDate(habit, dateStr)) continue;
         const log = logMap.get(`${habit._id}-${dateStr}`);
         const completed = isCompleted(log, habit);
         const catLabel = CATEGORY_DEFAULTS[habit.category]?.label || habit.category;
@@ -234,6 +261,10 @@ class ExportService {
 
       const rowData = { date: dateStr, day: dayShort };
       for (const habit of habits) {
+        if (!isHabitActiveOnDate(habit, dateStr)) {
+          rowData[`h_${habit._id}`] = '-';
+          continue;
+        }
         const log = logMap.get(`${habit._id}-${dateStr}`);
         const dayOfWeek = d.getUTCDay();
         if (!habit.frequency.includes(dayOfWeek)) {
@@ -293,6 +324,7 @@ class ExportService {
     for (const dateStr of dates) {
       const dow = new Date(dateStr + 'T00:00:00Z').getUTCDay();
       for (const habit of habits) {
+        if (!isHabitActiveOnDate(habit, dateStr)) continue;
         if (!habit.frequency.includes(dow)) continue;
         dayScheduled[dow]++;
         const log = logMap.get(`${habit._id}-${dateStr}`);
@@ -451,7 +483,7 @@ class ExportService {
           const dow = d.getUTCDay();
           const log = logMap.get(`${habit._id}-${dateStr}`);
 
-          if (!habit.frequency.includes(dow)) {
+          if (!isHabitActiveOnDate(habit, dateStr) || !habit.frequency.includes(dow)) {
             doc.fontSize(7).fillColor('#D1D5DB').text('-', x + 2, gridY + 3, { width: habitColW - 4, align: 'center' });
           } else if (!log) {
             doc.fontSize(7).fillColor('#DC2626').text('\u2717', x + 2, gridY + 3, { width: habitColW - 4, align: 'center' });
