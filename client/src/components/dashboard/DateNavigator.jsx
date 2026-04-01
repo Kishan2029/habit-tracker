@@ -1,12 +1,13 @@
 import Button from '../ui/Button';
 import { getLocalDateString, shiftDate } from '../../utils/dateUtils';
 
-export default function DateNavigator({ date, onChange }) {
+export default function DateNavigator({ date, onChange, minDate }) {
   const today = getLocalDateString();
-  const minDateStr = shiftDate(today, -7);
+  const defaultMin = shiftDate(today, -7);
+  const minDateStr = minDate || defaultMin;
 
   const canGoForward = date < today;
-  const canGoBack = date > minDateStr; // allows exactly 7 days back (matches backend MAX_BACKDATE_DAYS)
+  const canGoBack = date > minDateStr;
 
   const shift = (days) => {
     onChange(shiftDate(date, days));

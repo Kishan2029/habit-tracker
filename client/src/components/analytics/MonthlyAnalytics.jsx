@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getMonthlyLogs } from '../../api/logApi';
+import { useAuth } from '../../context/AuthContext';
 import CalendarHeatmap from './CalendarHeatmap';
 import HabitSelector from './HabitSelector';
 import Card from '../ui/Card';
@@ -13,7 +14,11 @@ const MONTH_NAMES = [
 ];
 
 export default function MonthlyAnalytics() {
+  const { user } = useAuth();
   const now = new Date();
+  const createdDate = user?.createdAt ? new Date(user.createdAt) : null;
+  const minMonth = createdDate ? createdDate.getMonth() + 1 : null;
+  const minYear = createdDate ? createdDate.getFullYear() : null;
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState(null);
@@ -39,6 +44,11 @@ export default function MonthlyAnalytics() {
     };
     fetchData();
   }, [month, year]);
+
+  const canGoBack = minYear != null
+    ? year > minYear || (year === minYear && month > minMonth)
+    : true;
+  const canGoForward = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1);
 
   const shiftMonth = (delta) => {
     let newMonth = month + delta;
@@ -100,7 +110,7 @@ export default function MonthlyAnalytics() {
     <div className="space-y-5">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => shiftMonth(-1)}>
+        <Button variant="ghost" size="sm" onClick={() => shiftMonth(-1)} disabled={!canGoBack}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -108,7 +118,7 @@ export default function MonthlyAnalytics() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           {MONTH_NAMES[month - 1]} {year}
         </h3>
-        <Button variant="ghost" size="sm" onClick={() => shiftMonth(1)}>
+        <Button variant="ghost" size="sm" onClick={() => shiftMonth(1)} disabled={!canGoForward}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
