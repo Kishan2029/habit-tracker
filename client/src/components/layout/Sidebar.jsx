@@ -30,7 +30,7 @@ export default function Sidebar({ isMobileOpen, onClose }) {
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="h-14 px-4 flex items-center border-b border-gray-200 dark:border-gray-700">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span>Habit Tracker</span>
           </h1>
