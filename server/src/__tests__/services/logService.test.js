@@ -128,6 +128,35 @@ describe('LogService', () => {
       });
     });
 
+    it('should throw 400 when logging before the habit was created', async () => {
+      const createdAt = new Date();
+      createdAt.setUTCDate(createdAt.getUTCDate() - 2);
+      const beforeCreatedAt = new Date(createdAt);
+      beforeCreatedAt.setUTCDate(beforeCreatedAt.getUTCDate() - 1);
+
+      Habit.findById.mockResolvedValue({
+        _id: 'h1',
+        userId: { toString: () => 'user1' },
+        frequency: [0, 1, 2, 3, 4, 5, 6],
+        target: 1,
+        createdAt,
+        currentStreak: 0,
+        longestStreak: 0,
+        save: jest.fn(),
+      });
+
+      await expect(
+        logService.createOrUpdate('user1', {
+          habitId: 'h1',
+          date: beforeCreatedAt.toISOString().slice(0, 10),
+          value: true,
+        })
+      ).rejects.toMatchObject({
+        message: 'Cannot log before the habit was created',
+        statusCode: 400,
+      });
+    });
+
     it('should create a new log entry', async () => {
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0];
@@ -238,6 +267,7 @@ describe('LogService', () => {
 
       expect(Habit.find).toHaveBeenCalledWith({
         userId: 'user1',
+        createdAt: { $lte: new Date('2025-06-15T00:00:00.000Z') },
         $or: [
           { isArchived: false, frequency: { $in: [0] } },
           { _id: { $in: ['h-archived'] } },
@@ -315,6 +345,11 @@ describe('LogService', () => {
 
       const result = await logService.getRangeLogs('user1', '2025-01-01', '2025-01-31');
 
+      expect(Habit.find).toHaveBeenCalledWith({
+        userId: 'user1',
+        createdAt: { $lte: new Date('2025-01-31T00:00:00.000Z') },
+        $or: [{ isArchived: false }, { _id: { $in: ['h1'] } }],
+      });
       expect(result.startDate).toBe('2025-01-01');
       expect(result.endDate).toBe('2025-01-31');
       expect(result.habits).toHaveLength(1);

@@ -31,13 +31,16 @@ class AuthService {
       console.error('[Email] Failed to send welcome email:', err.message);
     });
 
+    const userObj = user.toJSON();
     return {
       user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt,
+        _id: userObj._id,
+        name: userObj.name,
+        email: userObj.email,
+        role: userObj.role,
+        avatar: userObj.avatar,
+        settings: userObj.settings,
+        createdAt: userObj.createdAt,
       },
       token,
     };
@@ -56,13 +59,16 @@ class AuthService {
 
     const token = this.generateToken(user._id);
 
+    const userObj = user.toJSON();
     return {
       user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt,
+        _id: userObj._id,
+        name: userObj.name,
+        email: userObj.email,
+        role: userObj.role,
+        avatar: userObj.avatar,
+        settings: userObj.settings,
+        createdAt: userObj.createdAt,
       },
       token,
     };

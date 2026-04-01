@@ -16,6 +16,9 @@ class EmailService {
         },
       });
       console.log('[Email] SMTP configured successfully');
+      this.transporter.verify()
+        .then(() => console.log('[Email] SMTP connection verified — ready to send'))
+        .catch((err) => console.error('[Email] SMTP connection verification FAILED:', err.message));
     } else {
       console.log('[Email] SMTP not configured — emails will be logged to console only. Set SMTP_HOST, SMTP_USER, SMTP_PASS to enable.');
     }
@@ -53,12 +56,18 @@ class EmailService {
       console.log(`[Email Fallback] ${fallbackLabel} → ${to}`);
       return;
     }
-    await this.transporter.sendMail({
-      from: env.emailFrom,
-      to,
-      subject,
-      html: this._wrap(html),
-    });
+    try {
+      const info = await this.transporter.sendMail({
+        from: env.emailFrom,
+        to,
+        subject,
+        html: this._wrap(html),
+      });
+      console.log(`[Email] Sent "${fallbackLabel}" to ${to} — messageId: ${info.messageId}`);
+    } catch (err) {
+      console.error(`[Email] FAILED to send "${fallbackLabel}" to ${to}:`, err.message);
+      throw err;
+    }
   }
 
   // ─── Welcome Email (on registration) ─────────────────────────────────

@@ -8,6 +8,7 @@ import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import Button from '../ui/Button';
+import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -85,10 +86,11 @@ export default function MonthlyAnalytics() {
     let scheduled = 0;
     let completionSum = 0;
     for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr)) continue;
       const dow = new Date(year, month - 1, d).getDay();
       if (!habit.frequency.includes(dow)) continue;
       scheduled++;
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const log = logLookup.get(`${habit._id}-${dateStr}`);
       if (log) {
         if (typeof log.value === 'boolean') {
@@ -103,7 +105,7 @@ export default function MonthlyAnalytics() {
   });
 
   const totalScheduled = habitStats.reduce((s, h) => s + h.scheduled, 0);
-  const totalCompleted = habitStats.reduce((s, h) => s + h.completed, 0);
+  const totalCompleted = Math.round(habitStats.reduce((s, h) => s + h.completed, 0) * 10) / 10;
   const completionRate = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
   const bestHabit = habitStats.length > 0 ? habitStats.reduce((a, b) => a.rate > b.rate ? a : b) : null;
 
