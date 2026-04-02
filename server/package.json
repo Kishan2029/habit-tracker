@@ -11,6 +11,7 @@
     "test:report": "NODE_OPTIONS='--experimental-vm-modules' jest --forceExit --detectOpenHandles --coverage && open coverage/index.html"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.3",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
     "compression": "^1.8.1",
@@ -28,6 +29,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.4",
     "pdfkit": "^0.18.0",
+    "resend": "^6.10.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "web-push": "^3.6.7"

@@ -1,28 +1,15 @@
-import nodemailer from 'nodemailer';
 import env from '../config/env.js';
+import createEmailProvider from './email/createEmailProvider.js';
 
 class EmailService {
   constructor() {
-    this.isConfigured = !!(env.smtp.host && env.smtp.user && env.smtp.pass);
+    this.provider = null;
+  }
 
-    if (this.isConfigured) {
-      this.transporter = nodemailer.createTransport({
-        host: env.smtp.host,
-        port: env.smtp.port,
-        secure: env.smtp.port === 465,
-        auth: {
-          user: env.smtp.user,
-          pass: env.smtp.pass,
-        },
-        family: 4,
-      });
-      console.log('[Email] SMTP configured successfully');
-      this.transporter.verify()
-        .then(() => console.log('[Email] SMTP connection verified — ready to send'))
-        .catch((err) => console.error('[Email] SMTP connection verification FAILED:', err.message));
-    } else {
-      console.log('[Email] SMTP not configured — emails will be logged to console only. Set SMTP_HOST, SMTP_USER, SMTP_PASS to enable.');
-    }
+  async init() {
+    this.provider = await createEmailProvider();
+    console.log(`[Email] Provider initialized: ${this.provider.name}`);
+    return this;
   }
 
   _escapeHtml(str) {
@@ -53,20 +40,16 @@ class EmailService {
   }
 
   async _send(to, subject, html, fallbackLabel) {
-    if (!this.isConfigured) {
-      console.log(`[Email Fallback] ${fallbackLabel} → ${to}`);
-      return;
-    }
     try {
-      const info = await this.transporter.sendMail({
+      const result = await this.provider.send({
         from: env.emailFrom,
         to,
         subject,
         html: this._wrap(html),
       });
-      console.log(`[Email] Sent "${fallbackLabel}" to ${to} — messageId: ${info.messageId}`);
+      console.log(`[Email] Sent "${fallbackLabel}" to ${to} via ${this.provider.name}${result.messageId ? ` — messageId: ${result.messageId}` : ''}`);
     } catch (err) {
-      console.error(`[Email] FAILED to send "${fallbackLabel}" to ${to}:`, err.message);
+      console.error(`[Email] FAILED to send "${fallbackLabel}" to ${to} via ${this.provider.name}:`, err.message);
       throw err;
     }
   }
@@ -110,18 +93,7 @@ class EmailService {
         This link expires in <strong>30 minutes</strong>. If you didn't request this, you can safely ignore this email.
       </p>
     `;
-
-    if (!this.isConfigured) {
-      console.log(`[Email Fallback] Password reset email for ${email} (token not logged for security)`);
-      return;
-    }
-
-    await this.transporter.sendMail({
-      from: env.emailFrom,
-      to: email,
-      subject: 'Reset your Habit Tracker password',
-      html: this._wrap(html),
-    });
+    await this._send(email, 'Reset your Habit Tracker password', html, 'Password reset email');
   }
 
   // ─── Password Reset Confirmation ─────────────────────────────────────
@@ -227,4 +199,6 @@ class EmailService {
   }
 }
 
-export default new EmailService();
+const emailService = new EmailService();
+await emailService.init();
+export default emailService;

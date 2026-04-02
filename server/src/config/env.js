@@ -29,6 +29,11 @@ export default {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  email: {
+    provider: process.env.EMAIL_PROVIDER || 'smtp',
+    resendApiKey: process.env.RESEND_API_KEY,
+    brevoApiKey: process.env.BREVO_API_KEY,
+  },
   emailFrom: process.env.EMAIL_FROM || 'Habit Tracker <noreply@habit-tracker.com>',
   adminEmail: process.env.ADMIN_EMAIL || '',
   cloudinary: {
