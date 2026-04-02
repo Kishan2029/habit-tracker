@@ -14,6 +14,7 @@ class EmailService {
           user: env.smtp.user,
           pass: env.smtp.pass,
         },
+        family: 4,
       });
       console.log('[Email] SMTP configured successfully');
       this.transporter.verify()
