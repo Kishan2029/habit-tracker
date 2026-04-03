@@ -116,7 +116,7 @@ describe('SharedHabitController', () => {
       sharedHabitService.inviteMember.mockResolvedValue({
         shared: { _id: 'sh1' },
         emailSent: false,
-        emailError: 'SMTP down',
+        emailError: 'Email service not configured',
       });
 
       const req = { user: { _id: 'u1' }, body: { habitId: 'h1', email: 'bob@test.com' } };
