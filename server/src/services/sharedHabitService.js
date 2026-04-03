@@ -188,8 +188,10 @@ class SharedHabitService {
 
     await shared.save();
 
+    const emailSent = emailService.isConfigured;
+
     // Send invite email asynchronously — don't block the response
-    if (emailService.isConfigured) {
+    if (emailSent) {
       Promise.all([
         User.findById(requesterId, 'name'),
         Habit.findById(habitId, 'name'),
@@ -206,7 +208,11 @@ class SharedHabitService {
       });
     }
 
-    return { shared, emailSent: emailService.isConfigured, emailError: emailService.isConfigured ? null : 'Email service not configured (SMTP settings missing)' };
+    return {
+      shared,
+      emailSent,
+      emailError: emailSent ? null : 'Email service not configured',
+    };
   }
 
   // ─── Respond to Invite ──────────────────────────────────────────────

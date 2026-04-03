@@ -13,7 +13,7 @@ A full-stack habit tracking application with analytics, social sharing, and data
 | Database | MongoDB with Mongoose |
 | Auth | JWT, bcrypt |
 | File Storage | Cloudinary |
-| Email | Nodemailer (SMTP) |
+| Email | SMTP, Resend, Brevo |
 | Push Notifications | Web Push (VAPID) |
 | Charts | Recharts |
 | Export | ExcelJS, PDFKit |
@@ -28,7 +28,7 @@ A full-stack habit tracking application with analytics, social sharing, and data
 
 ### Environment Variables
 
-Create `server/.env`:
+Create `server/.env.development` for local development and `server/.env.production` for production:
 
 ```env
 # Required
@@ -41,11 +41,23 @@ PORT=5000
 CLIENT_URL=http://localhost:5173
 CORS_ORIGIN=http://localhost:5173
 
-# SMTP (for emails)
+# Email provider
+EMAIL_PROVIDER=smtp
+EMAIL_FROM=Habit Tracker <noreply@habit-tracker.com>
+EMAIL_REPLY_TO=support@habit-tracker.com
+EMAIL_REQUEST_TIMEOUT_MS=10000
+
+# SMTP
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=your-email
 SMTP_PASS=your-password
+
+# Resend
+RESEND_API_KEY=re_xxx
+
+# Brevo
+BREVO_API_KEY=your-brevo-api-key
 
 # Cloudinary (for avatars)
 CLOUDINARY_CLOUD_NAME=your-cloud

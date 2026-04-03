@@ -19,7 +19,17 @@ jest.unstable_mockModule('../../config/env.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  default: {
+    sendWelcomeEmail: jest.fn().mockResolvedValue(),
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(),
+    sendPasswordResetConfirmationEmail: jest.fn().mockResolvedValue(),
+    sendPasswordChangedEmail: jest.fn().mockResolvedValue(),
+  },
+}));
+
 const { default: User } = await import('../../models/User.js');
+const { default: emailService } = await import('../../services/emailService.js');
 const { default: authService } = await import('../../services/authService.js');
 
 describe('AuthService', () => {
@@ -43,6 +53,12 @@ describe('AuthService', () => {
         name: 'John',
         email: 'john@example.com',
         role: 'user',
+        toJSON: () => ({
+          _id: 'user123',
+          name: 'John',
+          email: 'john@example.com',
+          role: 'user',
+        }),
       });
 
       const result = await authService.register({
@@ -85,6 +101,12 @@ describe('AuthService', () => {
         email: 'john@example.com',
         role: 'user',
         comparePassword: jest.fn().mockResolvedValue(true),
+        toJSON: () => ({
+          _id: 'user123',
+          name: 'John',
+          email: 'john@example.com',
+          role: 'user',
+        }),
       };
       User.findOne.mockReturnValue({
         select: jest.fn().mockResolvedValue(mockUser),
@@ -142,6 +164,7 @@ describe('AuthService', () => {
 
       expect(result.resetToken).toBe('reset-token-abc');
       expect(mockUser.save).toHaveBeenCalledWith({ validateBeforeSave: false });
+      expect(emailService.sendPasswordResetEmail).toHaveBeenCalledWith('john@example.com', 'reset-token-abc');
     });
 
     it('should return null token if user not found (no email enumeration)', async () => {
@@ -149,6 +172,25 @@ describe('AuthService', () => {
 
       const result = await authService.forgotPassword('noone@example.com');
       expect(result).toEqual({ resetToken: null });
+    });
+
+    it('should reset token fields and throw 500 if email delivery fails', async () => {
+      const mockUser = {
+        createPasswordResetToken: jest.fn().mockReturnValue('reset-token-abc'),
+        save: jest.fn().mockResolvedValue(true),
+      };
+      User.findOne.mockResolvedValue(mockUser);
+      emailService.sendPasswordResetEmail.mockRejectedValueOnce(new Error('Email service not configured'));
+
+      await expect(authService.forgotPassword('john@example.com')).rejects.toMatchObject({
+        message: 'There was an error sending the email. Try again later.',
+        statusCode: 500,
+      });
+
+      expect(mockUser.save).toHaveBeenNthCalledWith(1, { validateBeforeSave: false });
+      expect(mockUser.save).toHaveBeenNthCalledWith(2, { validateBeforeSave: false });
+      expect(mockUser.resetPasswordToken).toBeUndefined();
+      expect(mockUser.resetPasswordExpires).toBeUndefined();
     });
   });
 

@@ -65,6 +65,7 @@ const createMockShared = (overrides = {}) => ({
 describe('SharedHabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    emailService.isConfigured = true;
   });
 
   // ─── Helper methods ─────────────────────────────────────────────
@@ -403,18 +404,31 @@ describe('SharedHabitService', () => {
       expect(result.emailError).toBeNull();
     });
 
-    it('should handle email failure gracefully', async () => {
+    it('should report provider availability even if async delivery later fails', async () => {
       const shared = createMockShared();
       SharedHabit.findOne.mockResolvedValue(shared);
       User.findOne.mockResolvedValue({ _id: { toString: () => 'u3' }, email: 'c@test.com', name: 'C' });
       User.findById.mockResolvedValue({ name: 'Owner' });
       Habit.findById.mockResolvedValue({ name: 'Exercise' });
-      emailService.sendHabitInviteEmail.mockRejectedValue(new Error('SMTP error'));
+      emailService.sendHabitInviteEmail.mockRejectedValue(new Error('Email delivery failed'));
+
+      const result = await sharedHabitService.inviteMember('owner1', 'h1', 'c@test.com');
+      await Promise.resolve();
+
+      expect(result.emailSent).toBe(true);
+      expect(result.emailError).toBeNull();
+    });
+
+    it('should return generic fallback message when no email provider is configured', async () => {
+      const shared = createMockShared();
+      SharedHabit.findOne.mockResolvedValue(shared);
+      User.findOne.mockResolvedValue({ _id: { toString: () => 'u3' }, email: 'c@test.com', name: 'C' });
+      emailService.isConfigured = false;
 
       const result = await sharedHabitService.inviteMember('owner1', 'h1', 'c@test.com');
 
       expect(result.emailSent).toBe(false);
-      expect(result.emailError).toBe('SMTP error');
+      expect(result.emailError).toBe('Email service not configured');
     });
   });
 
