@@ -36,6 +36,24 @@ jest.unstable_mockModule('../../services/cacheService.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: {
+    send: jest.fn().mockResolvedValue(),
+    sendWithUser: jest.fn().mockResolvedValue(),
+  },
+}));
+
+jest.unstable_mockModule('../../config/constants.js', () => ({
+  NOTIFICATION_TYPES: {
+    DAILY_REMINDER: 'dailyReminders',
+    STREAK_MILESTONE: 'streakMilestones',
+    MISSED_ALERT: 'missedAlerts',
+    SHARED_ACTIVITY: 'sharedActivity',
+    GOAL_COMPLETION: 'goalCompletion',
+    WEEKLY_SUMMARY: 'weeklySummary',
+  },
+}));
+
 const { default: SharedHabit } = await import('../../models/SharedHabit.js');
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: User } = await import('../../models/User.js');
