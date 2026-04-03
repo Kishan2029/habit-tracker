@@ -16,7 +16,9 @@ import {
   getEndOfYear,
   getDayOfWeek,
 } from '../utils/dateHelpers.js';
-import { MAX_BACKDATE_DAYS } from '../config/constants.js';
+import { MAX_BACKDATE_DAYS, NOTIFICATION_TYPES, STREAK_MILESTONES } from '../config/constants.js';
+import notificationService from './notificationService.js';
+import emailService from './emailService.js';
 
 function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds, activeFilter) {
   return {
@@ -132,11 +134,15 @@ class LogService {
     const logDoc = result.value;
 
     // Don't let streak calculation errors fail the whole request
+    let streaks = null;
     try {
-      await this.updateStreaks(habit, userId);
+      streaks = await this.updateStreaks(habit, userId);
     } catch (err) {
       console.error('Streak update failed:', err.message);
     }
+
+    // Fire-and-forget notifications — never block the response
+    this._sendLogNotifications(userId, habit, value, isNew, streaks).catch(() => {});
 
     return { log: logDoc, isNew };
   }
@@ -158,11 +164,84 @@ class LogService {
       habit.longestStreak = Math.max(longestStreak, habit.longestStreak);
       await habit.save();
     }
+
+    return { currentStreak, longestStreak };
   }
 
   async getUserStreakForHabit(userId, habit) {
     const logs = await HabitLog.find({ habitId: habit._id, userId }).sort({ date: 1 });
     return streakService.calculateStreaks(logs, habit.frequency, habit.target, habit.createdAt);
+  }
+
+  async _sendLogNotifications(userId, habit, value, isNew, streaks) {
+    const isCompleted = typeof value === 'boolean' ? value === true : value >= habit.target;
+
+    // 1. Streak milestone notification
+    if (streaks && STREAK_MILESTONES.includes(streaks.currentStreak)) {
+      notificationService.send(userId, NOTIFICATION_TYPES.STREAK_MILESTONE, {
+        pushPayload: {
+          title: `${streaks.currentStreak}-day streak! \u{1F525}`,
+          body: `You've completed "${habit.name}" for ${streaks.currentStreak} days in a row! Keep it up!`,
+          icon: '/pwa-192x192.png',
+          tag: `streak-${habit._id}`,
+          data: { url: '/' },
+        },
+        emailFn: (user) =>
+          emailService.sendStreakMilestoneEmail(user.email, user.name, habit.name, streaks.currentStreak),
+      }).catch(() => {});
+    }
+
+    // 2. Goal completion notification (only on transition: new log or value just reached target)
+    if (isCompleted && isNew) {
+      const bodyText = habit.type === 'count' && habit.unit
+        ? `You completed "${habit.name}" today \u2014 ${value} ${habit.unit} done!`
+        : `You completed "${habit.name}" today!`;
+
+      notificationService.send(userId, NOTIFICATION_TYPES.GOAL_COMPLETION, {
+        pushPayload: {
+          title: 'Goal achieved! \u2705',
+          body: bodyText,
+          icon: '/pwa-192x192.png',
+          tag: `goal-${habit._id}`,
+          data: { url: '/' },
+        },
+        emailFn: (user) =>
+          emailService.sendGoalCompletionEmail(user.email, user.name, habit.name, value, habit.target, habit.unit),
+      }).catch(() => {});
+    }
+
+    // 3. Shared habit partner completed notification
+    if (isCompleted) {
+      SharedHabit.findOne({ habitId: habit._id, isActive: true })
+        .then(async (shared) => {
+          if (!shared) return;
+
+          const logger = await User.findById(userId, 'name');
+          if (!logger) return;
+
+          // Collect all participants except the logger
+          const recipientIds = [
+            shared.ownerId.toString(),
+            ...shared.sharedWith
+              .filter((m) => m.status === 'accepted')
+              .map((m) => m.userId.toString()),
+          ].filter((id) => id !== userId.toString());
+
+          for (const recipientId of recipientIds) {
+            notificationService.send(recipientId, NOTIFICATION_TYPES.SHARED_ACTIVITY, {
+              pushPayload: {
+                title: 'Partner completed a habit!',
+                body: `${logger.name} completed "${habit.name}" today`,
+                icon: '/pwa-192x192.png',
+                tag: `shared-activity-${habit._id}`,
+                data: { url: '/' },
+              },
+              emailFn: null,
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   async getDailyLogs(userId, dateString) {

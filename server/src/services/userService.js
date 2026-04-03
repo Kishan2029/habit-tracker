@@ -13,23 +13,41 @@ class UserService {
   }
 
   async updateProfile(userId, updates) {
-    const allowedFields = ['name', 'settings'];
-    const filteredUpdates = {};
-    for (const key of allowedFields) {
-      if (updates[key] !== undefined) {
-        filteredUpdates[key] = updates[key];
-      }
-    }
-
-    const user = await User.findByIdAndUpdate(userId, filteredUpdates, {
-      new: true,
-      runValidators: true,
-    });
-
+    const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
+    if (updates.name !== undefined) {
+      user.name = updates.name;
+    }
+
+    if (updates.settings) {
+      if (updates.settings.theme !== undefined) {
+        user.settings.theme = updates.settings.theme;
+      }
+      if (updates.settings.timezone !== undefined) {
+        user.settings.timezone = updates.settings.timezone;
+      }
+      if (updates.settings.reminderTime !== undefined) {
+        user.settings.reminderTime = updates.settings.reminderTime;
+      }
+      if (updates.settings.notifications) {
+        const notifs = updates.settings.notifications;
+        for (const [type, channels] of Object.entries(notifs)) {
+          if (user.settings.notifications[type]) {
+            if (channels.push !== undefined) {
+              user.settings.notifications[type].push = channels.push;
+            }
+            if (channels.email !== undefined) {
+              user.settings.notifications[type].email = channels.email;
+            }
+          }
+        }
+      }
+    }
+
+    await user.save();
     return user;
   }
 

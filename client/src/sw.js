@@ -42,13 +42,20 @@ self.addEventListener('push', (event) => {
     console.warn('[SW Push] No data in push event, using defaults');
   }
 
+  // Use data.data.url if the payload nests url inside a data object
+  const clickUrl = data.data?.url || data.url || '/';
+
+  // Milestone and streak notifications should persist until dismissed
+  const interactiveTags = ['streak-', 'weekly-summary'];
+  const shouldRequireInteraction = interactiveTags.some((t) => (data.tag || '').startsWith(t));
+
   const options = {
     body: data.body,
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
     tag: data.tag || 'habit-tracker',
-    data: { url: data.url || '/' },
-    requireInteraction: false,
+    data: { url: clickUrl },
+    requireInteraction: shouldRequireInteraction,
   };
 
   console.log('[SW Push] Showing notification:', data.title, options);
