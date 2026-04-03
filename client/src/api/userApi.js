@@ -10,3 +10,7 @@ export const uploadAvatar = (formData) =>
   });
 
 export const changePassword = (data) => api.put('/users/change-password', data);
+
+export const sendEmailVerification = () => api.post('/users/send-verification');
+
+export const verifyEmail = (code) => api.post('/users/verify-email', { code });

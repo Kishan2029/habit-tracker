@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import authenticate from '../middleware/authenticate.js';
 import { getProfile, updateProfile, uploadAvatar } from '../controllers/userController.js';
+import { sendVerification, verifyEmail } from '../controllers/emailVerificationController.js';
 import { changePassword } from '../controllers/authController.js';
 import { changePasswordRules } from '../validators/authValidators.js';
 import validate from '../middleware/validate.js';
@@ -22,6 +23,22 @@ const updateProfileRules = [
     .trim()
     .isLength({ min: 1, max: 100 })
     .withMessage('Timezone is required'),
+  body('settings.reminderTime')
+    .optional()
+    .matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .withMessage('Reminder time must be in HH:mm format'),
+  body('settings.notifications.dailyReminders.push').optional().isBoolean(),
+  body('settings.notifications.dailyReminders.email').optional().isBoolean(),
+  body('settings.notifications.streakMilestones.push').optional().isBoolean(),
+  body('settings.notifications.streakMilestones.email').optional().isBoolean(),
+  body('settings.notifications.missedAlerts.push').optional().isBoolean(),
+  body('settings.notifications.missedAlerts.email').optional().isBoolean(),
+  body('settings.notifications.sharedActivity.push').optional().isBoolean(),
+  body('settings.notifications.sharedActivity.email').optional().isBoolean(),
+  body('settings.notifications.goalCompletion.push').optional().isBoolean(),
+  body('settings.notifications.goalCompletion.email').optional().isBoolean(),
+  body('settings.notifications.weeklySummary.push').optional().isBoolean(),
+  body('settings.notifications.weeklySummary.email').optional().isBoolean(),
 ];
 
 const router = Router();
@@ -231,5 +248,16 @@ router.put('/profile/avatar', upload.single('avatar'), uploadAvatar);
  *               $ref: '#/components/schemas/Error'
  */
 router.put('/change-password', changePasswordRules, validate, changePassword);
+
+const verifyEmailRules = [
+  body('code')
+    .trim()
+    .isLength({ min: 6, max: 6 })
+    .isNumeric()
+    .withMessage('Verification code must be a 6-digit number'),
+];
+
+router.post('/send-verification', sendVerification);
+router.post('/verify-email', verifyEmailRules, validate, verifyEmail);
 
 export default router;

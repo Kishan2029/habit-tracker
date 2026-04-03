@@ -28,6 +28,12 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(ROLES),
       default: ROLES.USER,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationCode: String,
+    emailVerificationExpires: Date,
     settings: {
       theme: {
         type: String,
@@ -37,6 +43,36 @@ const userSchema = new mongoose.Schema(
       timezone: {
         type: String,
         default: 'UTC',
+      },
+      notifications: {
+        dailyReminders: {
+          push: { type: Boolean, default: true },
+          email: { type: Boolean, default: false },
+        },
+        streakMilestones: {
+          push: { type: Boolean, default: true },
+          email: { type: Boolean, default: true },
+        },
+        missedAlerts: {
+          push: { type: Boolean, default: true },
+          email: { type: Boolean, default: false },
+        },
+        sharedActivity: {
+          push: { type: Boolean, default: true },
+          email: { type: Boolean, default: false },
+        },
+        goalCompletion: {
+          push: { type: Boolean, default: true },
+          email: { type: Boolean, default: true },
+        },
+        weeklySummary: {
+          push: { type: Boolean, default: true },
+          email: { type: Boolean, default: false },
+        },
+      },
+      reminderTime: {
+        type: String,
+        default: '08:00',
       },
     },
     avatar: {
@@ -74,6 +110,8 @@ userSchema.methods.toJSON = function () {
   delete obj.passwordHash;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpires;
+  delete obj.emailVerificationCode;
+  delete obj.emailVerificationExpires;
   return obj;
 };
 

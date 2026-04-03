@@ -33,6 +33,17 @@ export const CATEGORY_DEFAULTS = {
 
 export const MAX_BACKDATE_DAYS = 7;
 
+export const NOTIFICATION_TYPES = {
+  DAILY_REMINDER: 'dailyReminders',
+  STREAK_MILESTONE: 'streakMilestones',
+  MISSED_ALERT: 'missedAlerts',
+  SHARED_ACTIVITY: 'sharedActivity',
+  GOAL_COMPLETION: 'goalCompletion',
+  WEEKLY_SUMMARY: 'weeklySummary',
+};
+
+export const STREAK_MILESTONES = [7, 14, 21, 30, 50, 100, 200, 365];
+
 export const DEFAULT_HABIT_COLOR = '#6366f1';
 export const DEFAULT_HABIT_ICON = '\u{1F3AF}';
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];

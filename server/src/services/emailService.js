@@ -7,6 +7,12 @@ import {
   buildPasswordResetConfirmationEmail,
   buildPasswordResetEmail,
   buildWelcomeEmail,
+  buildEmailVerificationEmail,
+  buildDailyReminderEmail,
+  buildStreakMilestoneEmail,
+  buildGoalCompletionEmail,
+  buildMissedHabitEmail,
+  buildWeeklySummaryEmail,
   escapeHtml,
   htmlToText,
   wrapEmailContent,
@@ -102,6 +108,38 @@ class EmailService {
 
   async sendPasswordChangedEmail(email, name) {
     const template = buildPasswordChangedEmail({ name });
+    await this._send(email, template.subject, template.html, template.label);
+  }
+
+  async sendEmailVerificationEmail(email, name, code) {
+    const template = buildEmailVerificationEmail({ name, code });
+    await this._send(email, template.subject, template.html, template.label, {
+      requireDelivery: true,
+    });
+  }
+
+  async sendDailyReminderEmail(email, name, habits) {
+    const template = buildDailyReminderEmail({ name, habits, clientUrl: this.env.clientUrl });
+    await this._send(email, template.subject, template.html, template.label);
+  }
+
+  async sendStreakMilestoneEmail(email, name, habitName, streak) {
+    const template = buildStreakMilestoneEmail({ name, habitName, streak, clientUrl: this.env.clientUrl });
+    await this._send(email, template.subject, template.html, template.label);
+  }
+
+  async sendGoalCompletionEmail(email, name, habitName, value, target, unit) {
+    const template = buildGoalCompletionEmail({ name, habitName, value, target, unit, clientUrl: this.env.clientUrl });
+    await this._send(email, template.subject, template.html, template.label);
+  }
+
+  async sendMissedHabitEmail(email, name, missedHabits) {
+    const template = buildMissedHabitEmail({ name, missedHabits, clientUrl: this.env.clientUrl });
+    await this._send(email, template.subject, template.html, template.label);
+  }
+
+  async sendWeeklySummaryEmail(email, name, { completionRate, completed, total, bestHabit, bestStreak }) {
+    const template = buildWeeklySummaryEmail({ name, completionRate, completed, total, bestHabit, bestStreak, clientUrl: this.env.clientUrl });
     await this._send(email, template.subject, template.html, template.label);
   }
 }

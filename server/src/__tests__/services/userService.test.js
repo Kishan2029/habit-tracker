@@ -60,26 +60,29 @@ describe('UserService', () => {
 
   describe('updateProfile', () => {
     it('should update allowed fields only', async () => {
-      const mockUser = { _id: 'user1', name: 'Updated' };
-      User.findByIdAndUpdate.mockResolvedValue(mockUser);
+      const mockUser = {
+        _id: 'user1',
+        name: 'John',
+        settings: { theme: 'system', timezone: 'UTC', notifications: {}, reminderTime: '08:00' },
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      User.findById.mockResolvedValue(mockUser);
 
       const result = await userService.updateProfile('user1', {
         name: 'Updated',
-        email: 'hacker@evil.com', // should be filtered out
-        role: 'admin', // should be filtered out
+        email: 'hacker@evil.com', // should be ignored
+        role: 'admin', // should be ignored
         settings: { theme: 'dark' },
       });
 
-      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
-        'user1',
-        { name: 'Updated', settings: { theme: 'dark' } },
-        { new: true, runValidators: true }
-      );
+      expect(mockUser.name).toBe('Updated');
+      expect(mockUser.settings.theme).toBe('dark');
+      expect(mockUser.save).toHaveBeenCalled();
       expect(result).toEqual(mockUser);
     });
 
     it('should throw 404 if user not found during update', async () => {
-      User.findByIdAndUpdate.mockResolvedValue(null);
+      User.findById.mockResolvedValue(null);
 
       await expect(
         userService.updateProfile('nonexistent', { name: 'Test' })
@@ -90,16 +93,68 @@ describe('UserService', () => {
     });
 
     it('should handle empty updates (no allowed fields)', async () => {
-      const mockUser = { _id: 'user1', name: 'John' };
-      User.findByIdAndUpdate.mockResolvedValue(mockUser);
+      const mockUser = {
+        _id: 'user1',
+        name: 'John',
+        settings: { theme: 'system', timezone: 'UTC', notifications: {}, reminderTime: '08:00' },
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      User.findById.mockResolvedValue(mockUser);
 
       await userService.updateProfile('user1', { email: 'test@test.com' });
 
-      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
-        'user1',
-        {},
-        { new: true, runValidators: true }
-      );
+      // Name unchanged, save still called
+      expect(mockUser.name).toBe('John');
+      expect(mockUser.save).toHaveBeenCalled();
+    });
+
+    it('should merge notification preferences without overwriting', async () => {
+      const mockUser = {
+        _id: 'user1',
+        name: 'John',
+        settings: {
+          theme: 'dark',
+          timezone: 'UTC',
+          reminderTime: '08:00',
+          notifications: {
+            dailyReminders: { push: true, email: false },
+            streakMilestones: { push: true, email: true },
+          },
+        },
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      User.findById.mockResolvedValue(mockUser);
+
+      await userService.updateProfile('user1', {
+        settings: {
+          notifications: {
+            dailyReminders: { email: true },
+          },
+        },
+      });
+
+      // dailyReminders.email updated, push unchanged
+      expect(mockUser.settings.notifications.dailyReminders.email).toBe(true);
+      expect(mockUser.settings.notifications.dailyReminders.push).toBe(true);
+      // streakMilestones unchanged
+      expect(mockUser.settings.notifications.streakMilestones.push).toBe(true);
+      expect(mockUser.settings.notifications.streakMilestones.email).toBe(true);
+    });
+
+    it('should update reminder time', async () => {
+      const mockUser = {
+        _id: 'user1',
+        name: 'John',
+        settings: { theme: 'system', timezone: 'UTC', notifications: {}, reminderTime: '08:00' },
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      User.findById.mockResolvedValue(mockUser);
+
+      await userService.updateProfile('user1', {
+        settings: { reminderTime: '09:30' },
+      });
+
+      expect(mockUser.settings.reminderTime).toBe('09:30');
     });
   });
 });

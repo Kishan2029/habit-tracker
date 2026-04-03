@@ -187,6 +187,183 @@ export const buildFeedbackNotificationEmail = ({
   };
 };
 
+export const buildEmailVerificationEmail = ({ name, code }) => {
+  const html = `
+    <h3 style="color: #111827; margin-top: 0;">Verify Your Email</h3>
+    <p style="color: #374151; line-height: 1.6;">
+      Hi ${escapeHtml(name)}, enter the following code to verify your email address and enable email notifications:
+    </p>
+    <div style="text-align: center; margin: 24px 0;">
+      <span style="display: inline-block; padding: 16px 32px; background-color: #f3f4f6; border-radius: 8px; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #111827;">${escapeHtml(code)}</span>
+    </div>
+    <p style="color: #6b7280; font-size: 14px;">
+      This code expires in <strong>10 minutes</strong>. If you didn't request this, you can safely ignore this email.
+    </p>
+  `;
+
+  return {
+    subject: 'Verify your email \u2014 Habit Tracker',
+    html,
+    label: 'Email verification',
+  };
+};
+
+export const buildDailyReminderEmail = ({ name, habits, clientUrl }) => {
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const habitList = habits
+    .map((h) => `<li style="padding: 4px 0;">${escapeHtml(h.icon || '\u{1F3AF}')} <strong>${escapeHtml(h.name)}</strong>${h.target > 1 ? ` \u2014 target: ${h.target} ${escapeHtml(h.unit || '')}` : ''}</li>`)
+    .join('');
+
+  const html = `
+    <h3 style="color: #111827; margin-top: 0;">Your Habits for Today</h3>
+    <p style="color: #374151; line-height: 1.6;">
+      Hi ${escapeHtml(name)}, you have <strong>${habits.length} habit${habits.length > 1 ? 's' : ''}</strong> to complete today:
+    </p>
+    <ul style="color: #374151; line-height: 1.8; padding-left: 20px;">
+      ${habitList}
+    </ul>
+    <a href="${clientUrl}/" style="display: inline-block; padding: 12px 24px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">
+      Go to Today
+    </a>
+    <p style="color: #9ca3af; font-size: 12px;">${today}</p>
+  `;
+
+  return {
+    subject: `Your habits for today \u2014 ${today}`,
+    html,
+    label: 'Daily reminder',
+  };
+};
+
+export const buildStreakMilestoneEmail = ({ name, habitName, streak, clientUrl }) => {
+  const milestoneMessages = {
+    7: "That's a full week! You're building a real habit.",
+    14: "Two weeks strong! Consistency is paying off.",
+    21: "Three weeks! Science says this is when habits stick.",
+    30: "A whole month! You're unstoppable.",
+    50: "50 days! That's seriously impressive dedication.",
+    100: "Triple digits! You're in elite habit territory.",
+    200: "200 days! This is truly part of who you are.",
+    365: "A full year! What an incredible achievement!",
+  };
+  const message = milestoneMessages[streak] || `${streak} days of consistency!`;
+
+  const html = `
+    <h3 style="color: #111827; margin-top: 0;">\u{1F525} ${streak}-Day Streak!</h3>
+    <p style="color: #374151; line-height: 1.6;">
+      Hi ${escapeHtml(name)}, you've completed <strong>"${escapeHtml(habitName)}"</strong> for <strong>${streak} days</strong> in a row!
+    </p>
+    <div style="background-color: #eef2ff; border-left: 4px solid #6366f1; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+      <p style="color: #4338ca; font-size: 14px; margin: 0;">
+        ${message}
+      </p>
+    </div>
+    <a href="${clientUrl}/" style="display: inline-block; padding: 12px 24px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">
+      Keep Going
+    </a>
+  `;
+
+  return {
+    subject: `You hit a ${streak}-day streak on ${escapeHtml(habitName)}!`,
+    html,
+    label: 'Streak milestone',
+  };
+};
+
+export const buildGoalCompletionEmail = ({ name, habitName, value, target, unit, clientUrl }) => {
+  const displayValue = unit ? `${value}/${target} ${escapeHtml(unit)}` : 'Done';
+
+  const html = `
+    <h3 style="color: #111827; margin-top: 0;">\u2705 Goal Achieved!</h3>
+    <p style="color: #374151; line-height: 1.6;">
+      Hi ${escapeHtml(name)}, you completed <strong>"${escapeHtml(habitName)}"</strong> today!
+    </p>
+    <div style="text-align: center; margin: 20px 0;">
+      <span style="display: inline-block; padding: 12px 24px; background-color: #ecfdf5; border-radius: 8px; font-size: 20px; font-weight: 700; color: #065f46;">${displayValue}</span>
+    </div>
+    <a href="${clientUrl}/" style="display: inline-block; padding: 12px 24px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">
+      View Your Progress
+    </a>
+  `;
+
+  return {
+    subject: `You completed "${escapeHtml(habitName)}" today!`,
+    html,
+    label: 'Goal completion',
+  };
+};
+
+export const buildMissedHabitEmail = ({ name, missedHabits, clientUrl }) => {
+  const count = missedHabits.length;
+  const habitList = missedHabits
+    .map((h) => {
+      const streakInfo = h.currentStreak > 0 ? ` \u2014 <span style="color: #dc2626;">${h.currentStreak}-day streak at risk!</span>` : '';
+      return `<li style="padding: 4px 0;">${escapeHtml(h.icon || '\u{1F3AF}')} <strong>${escapeHtml(h.name)}</strong>${streakInfo}</li>`;
+    })
+    .join('');
+
+  const html = `
+    <h3 style="color: #111827; margin-top: 0;">Missed Habits Yesterday</h3>
+    <p style="color: #374151; line-height: 1.6;">
+      Hi ${escapeHtml(name)}, you missed <strong>${count} habit${count > 1 ? 's' : ''}</strong> yesterday:
+    </p>
+    <ul style="color: #374151; line-height: 1.8; padding-left: 20px;">
+      ${habitList}
+    </ul>
+    <div style="background-color: #eef2ff; border-left: 4px solid #6366f1; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+      <p style="color: #4338ca; font-size: 14px; margin: 0;">
+        It's okay to miss a day \u2014 what matters is getting back on track. You've got this!
+      </p>
+    </div>
+    <a href="${clientUrl}/" style="display: inline-block; padding: 12px 24px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">
+      Log Today's Habits
+    </a>
+  `;
+
+  return {
+    subject: `You missed ${count} habit${count > 1 ? 's' : ''} yesterday`,
+    html,
+    label: 'Missed habit alert',
+  };
+};
+
+export const buildWeeklySummaryEmail = ({ name, completionRate, completed, total, bestHabit, bestStreak, clientUrl }) => {
+  const html = `
+    <h3 style="color: #111827; margin-top: 0;">Your Week in Review</h3>
+    <p style="color: #374151; line-height: 1.6;">
+      Hi ${escapeHtml(name)}, here's how your week went:
+    </p>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+      <tr>
+        <td style="padding: 12px; background-color: #f3f4f6; border-radius: 8px 0 0 0; text-align: center; width: 50%;">
+          <div style="font-size: 28px; font-weight: 700; color: #6366f1;">${completionRate}%</div>
+          <div style="color: #6b7280; font-size: 12px;">Completion Rate</div>
+        </td>
+        <td style="padding: 12px; background-color: #f3f4f6; border-radius: 0 8px 0 0; text-align: center; width: 50%;">
+          <div style="font-size: 28px; font-weight: 700; color: #111827;">${completed}/${total}</div>
+          <div style="color: #6b7280; font-size: 12px;">Habits Completed</div>
+        </td>
+      </tr>
+    </table>
+    ${bestHabit ? `
+    <div style="background-color: #eef2ff; border-left: 4px solid #6366f1; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+      <p style="color: #4338ca; font-size: 14px; margin: 0;">
+        \u{1F525} Best streak: <strong>${escapeHtml(bestHabit)}</strong> (${bestStreak} days)
+      </p>
+    </div>
+    ` : ''}
+    <a href="${clientUrl}/" style="display: inline-block; padding: 12px 24px; background-color: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 16px 0;">
+      View Full Stats
+    </a>
+  `;
+
+  return {
+    subject: `Your week in review \u2014 ${completionRate}% completion`,
+    html,
+    label: 'Weekly summary',
+  };
+};
+
 export const buildPasswordChangedEmail = ({ name, submittedAt = new Date() }) => {
   const html = `
     <h3 style="color: #111827; margin-top: 0;">Password Changed</h3>

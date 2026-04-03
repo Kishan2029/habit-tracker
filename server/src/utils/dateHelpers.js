@@ -42,3 +42,32 @@ export const getTodayUTC = () => {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 };
+
+export const getHourInTimezone = (date, timezone) => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: timezone,
+    });
+    return parseInt(formatter.format(date), 10);
+  } catch {
+    return date.getUTCHours();
+  }
+};
+
+export const getTodayInTimezone = (timezone) => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
+    const dateStr = formatter.format(new Date());
+    return new Date(`${dateStr}T00:00:00.000Z`);
+  } catch {
+    return getTodayUTC();
+  }
+};
+
+export const getYesterdayInTimezone = (timezone) => {
+  const today = getTodayInTimezone(timezone);
+  today.setUTCDate(today.getUTCDate() - 1);
+  return today;
+};
