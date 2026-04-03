@@ -42,6 +42,12 @@ jest.unstable_mockModule('../../config/constants.js', () => ({
     ADMIN: 'admin',
   },
   MAX_BACKDATE_DAYS: 7,
+  NOTIFICATION_TYPES: {
+    STREAK_MILESTONE: 'streakMilestones',
+    GOAL_COMPLETION: 'goalCompletion',
+    SHARED_ACTIVITY: 'sharedActivity',
+  },
+  STREAK_MILESTONES: [7, 14, 21, 30, 50, 100, 200, 365],
 }));
 
 jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({

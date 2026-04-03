@@ -218,4 +218,21 @@ describe('EmailService', () => {
       expect(provider.send.mock.calls[0][0].html).toContain('Alice');
     });
   });
+
+  describe('sendWeeklySummaryEmail', () => {
+    it('should accept summary objects from weeklySummaryService', async () => {
+      await emailService.sendWeeklySummaryEmail('user@test.com', 'Alice', {
+        completionRate: 80,
+        completedCount: 4,
+        totalExpected: 5,
+        bestHabit: 'Exercise',
+        bestStreak: 8,
+      });
+
+      const html = provider.send.mock.calls[0][0].html;
+      expect(html).toContain('80%');
+      expect(html).toContain('4/5');
+      expect(html).toContain('Exercise');
+    });
+  });
 });

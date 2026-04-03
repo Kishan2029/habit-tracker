@@ -8,16 +8,22 @@ jest.unstable_mockModule('../../models/Habit.js', () => ({
   default: { find: jest.fn() },
 }));
 
-jest.unstable_mockModule('../../models/PushSubscription.js', () => ({
-  default: { find: jest.fn() },
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: {
+    getScheduledUsers: jest.fn(),
+    sendWithUser: jest.fn(),
+  },
 }));
 
-jest.unstable_mockModule('../../services/pushService.js', () => ({
-  default: { sendNotification: jest.fn() },
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  default: {
+    sendWeeklySummaryEmail: jest.fn(),
+  },
 }));
 
 const { default: HabitLog } = await import('../../models/HabitLog.js');
 const { default: Habit } = await import('../../models/Habit.js');
+const { default: notificationService } = await import('../../services/notificationService.js');
 const { default: weeklySummaryService } = await import('../../services/weeklySummaryService.js');
 
 describe('WeeklySummaryService', () => {
@@ -90,6 +96,50 @@ describe('WeeklySummaryService', () => {
       expect(result.totalExpected).toBe(7);
       expect(result.completedCount).toBe(1);
       expect(result.bestHabit).toBe('Exercise');
+    });
+  });
+
+  describe('sendWeeklySummaries', () => {
+    it('should send summaries to email-only users returned by scheduled selection', async () => {
+      const user = {
+        _id: 'user1',
+        email: 'user@test.com',
+        emailVerified: true,
+        settings: {
+          notifications: {
+            weeklySummary: { push: false, email: true },
+          },
+        },
+      };
+      const summary = {
+        completionRate: 80,
+        completedCount: 4,
+        totalExpected: 5,
+        bestHabit: 'Exercise',
+        bestStreak: 8,
+      };
+
+      notificationService.getScheduledUsers.mockResolvedValue([user]);
+      notificationService.sendWithUser.mockResolvedValue();
+      weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(summary);
+
+      await weeklySummaryService.sendWeeklySummaries();
+
+      expect(notificationService.getScheduledUsers).toHaveBeenCalledWith(
+        'weeklySummary',
+        'name email emailVerified settings'
+      );
+      expect(weeklySummaryService.generateSummary).toHaveBeenCalledWith('user1');
+      expect(notificationService.sendWithUser).toHaveBeenCalledWith(
+        user,
+        'weeklySummary',
+        expect.objectContaining({
+          pushPayload: expect.objectContaining({
+            title: 'Weekly Summary: 80% completion',
+          }),
+          emailFn: expect.any(Function),
+        })
+      );
     });
   });
 });

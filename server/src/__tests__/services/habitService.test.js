@@ -19,6 +19,7 @@ jest.unstable_mockModule('../../models/HabitLog.js', () => ({
 
 jest.unstable_mockModule('../../models/SharedHabit.js', () => ({
   default: {
+    find: jest.fn(),
     findOne: jest.fn(),
     findOneAndDelete: jest.fn(),
   },
@@ -49,6 +50,12 @@ describe('HabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
+    SharedHabit.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([]),
+      }),
+    });
+    SharedHabit.findOne.mockResolvedValue(null);
   });
 
   describe('_cacheKey', () => {
@@ -75,13 +82,13 @@ describe('HabitService', () => {
 
     it('should query DB and cache when cache miss', async () => {
       cache.get.mockReturnValue(undefined);
-      const habits = [{ name: 'Exercise' }];
+      const habits = [{ _id: 'h1', name: 'Exercise' }];
       Habit.find.mockReturnValue({
         sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(habits) }),
       });
 
       const result = await habitService.getAll('user1');
-      expect(result).toEqual(habits);
+      expect(result).toEqual([{ _id: 'h1', name: 'Exercise', isShared: false }]);
       expect(cache.set).toHaveBeenCalled();
     });
 

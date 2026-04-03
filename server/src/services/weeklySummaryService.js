@@ -1,7 +1,5 @@
 import HabitLog from '../models/HabitLog.js';
 import Habit from '../models/Habit.js';
-import User from '../models/User.js';
-import PushSubscription from '../models/PushSubscription.js';
 import notificationService from './notificationService.js';
 import emailService from './emailService.js';
 import { NOTIFICATION_TYPES } from '../config/constants.js';
@@ -58,15 +56,15 @@ class WeeklySummaryService {
   }
 
   async sendWeeklySummaries() {
-    const subs = await PushSubscription.find();
+    const users = await notificationService.getScheduledUsers(
+      NOTIFICATION_TYPES.WEEKLY_SUMMARY,
+      'name email emailVerified settings'
+    );
     let sent = 0;
 
-    for (const sub of subs) {
+    for (const user of users) {
       try {
-        const user = await User.findById(sub.userId, 'name email emailVerified settings');
-        if (!user) continue;
-
-        const summary = await this.generateSummary(sub.userId);
+        const summary = await this.generateSummary(user._id);
         if (!summary) continue;
 
         await notificationService.sendWithUser(user, NOTIFICATION_TYPES.WEEKLY_SUMMARY, {
@@ -81,7 +79,7 @@ class WeeklySummaryService {
         });
         sent++;
       } catch (err) {
-        console.error(`[Weekly Summary] Error for user ${sub.userId}:`, err.message);
+        console.error(`[Weekly Summary] Error for user ${user._id}:`, err.message);
       }
     }
 
