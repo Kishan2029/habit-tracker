@@ -63,7 +63,7 @@ describe('FeedbackController', () => {
 
     it('should still succeed if email notification fails', async () => {
       Feedback.create.mockResolvedValue({ _id: 'f1' });
-      emailService.sendFeedbackNotification.mockRejectedValue(new Error('SMTP down'));
+      emailService.sendFeedbackNotification.mockRejectedValue(new Error('Email delivery failed'));
 
       const req = {
         body: { mood: 'sad', message: 'Bug found', page: 'habits' },
