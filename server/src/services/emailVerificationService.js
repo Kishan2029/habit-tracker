@@ -5,7 +5,7 @@ import AppError from '../utils/AppError.js';
 
 class EmailVerificationService {
   generateCode() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return crypto.randomInt(100000, 999999).toString();
   }
 
   hashCode(code) {
@@ -32,6 +32,7 @@ class EmailVerificationService {
     const code = this.generateCode();
     user.emailVerificationCode = this.hashCode(code);
     user.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.emailVerificationAttempts = 0;
     await user.save({ validateBeforeSave: false });
 
     await emailService.sendEmailVerificationEmail(user.email, user.name, code);
@@ -40,7 +41,7 @@ class EmailVerificationService {
   }
 
   async verifyEmail(userId, code) {
-    const user = await User.findById(userId).select('+emailVerificationCode +emailVerificationExpires');
+    const user = await User.findById(userId).select('+emailVerificationCode +emailVerificationExpires +emailVerificationAttempts');
     if (!user) throw new AppError('User not found', 404);
 
     if (user.emailVerified) {
@@ -51,21 +52,34 @@ class EmailVerificationService {
       throw new AppError('No verification code found. Please request a new one.', 400);
     }
 
+    // Brute-force protection: lock after 5 failed attempts
+    if (user.emailVerificationAttempts >= 5) {
+      user.emailVerificationCode = undefined;
+      user.emailVerificationExpires = undefined;
+      user.emailVerificationAttempts = 0;
+      await user.save({ validateBeforeSave: false });
+      throw new AppError('Too many failed attempts. Please request a new code.', 429);
+    }
+
     if (Date.now() > user.emailVerificationExpires) {
       user.emailVerificationCode = undefined;
       user.emailVerificationExpires = undefined;
+      user.emailVerificationAttempts = 0;
       await user.save({ validateBeforeSave: false });
       throw new AppError('Verification code has expired. Please request a new one.', 400);
     }
 
     const hashedCode = this.hashCode(code);
     if (hashedCode !== user.emailVerificationCode) {
+      user.emailVerificationAttempts = (user.emailVerificationAttempts || 0) + 1;
+      await user.save({ validateBeforeSave: false });
       throw new AppError('Invalid verification code', 400);
     }
 
     user.emailVerified = true;
     user.emailVerificationCode = undefined;
     user.emailVerificationExpires = undefined;
+    user.emailVerificationAttempts = 0;
     await user.save({ validateBeforeSave: false });
 
     return { message: 'Email verified successfully' };

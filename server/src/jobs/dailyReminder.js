@@ -9,70 +9,97 @@ import { NOTIFICATION_TYPES } from '../config/constants.js';
 import { getHourInTimezone, getTodayInTimezone } from '../utils/dateHelpers.js';
 
 async function sendDailyReminders() {
-  const currentUTCHour = new Date().getUTCHours();
-  console.log(`[Cron] Running daily reminder check (UTC hour: ${currentUTCHour})...`);
+  console.log('[Cron] Running daily reminder check...');
 
-  // Get all users with push subscriptions (they've opted into notifications)
-  const subs = await PushSubscription.find();
+  // Step 1: Get all subscribed user IDs
+  const subs = await PushSubscription.find({}, 'userId');
+  if (subs.length === 0) return;
+
+  const subscribedUserIds = subs.map((s) => s.userId);
+
+  // Step 2: Bulk-load users who have reminders enabled
+  const users = await User.find({
+    _id: { $in: subscribedUserIds },
+    'settings.notifications.dailyReminders.push': { $ne: false },
+  }, 'name email emailVerified settings');
+
+  // Step 3: Filter to users whose local time matches their reminder hour
+  const eligibleUsers = [];
+  for (const user of users) {
+    const tz = user.settings?.timezone || 'UTC';
+    const reminderTime = user.settings?.reminderTime || '08:00';
+    const [targetHour] = reminderTime.split(':').map(Number);
+    const userLocalHour = getHourInTimezone(new Date(), tz);
+    if (userLocalHour === targetHour) {
+      eligibleUsers.push({ user, tz });
+    }
+  }
+
+  if (eligibleUsers.length === 0) return;
+
+  // Step 4: Bulk-load habits and logs for eligible users
+  const eligibleUserIds = eligibleUsers.map((e) => e.user._id);
+
+  // Group users by their local today date (most will share the same date)
+  const dateGroups = new Map();
+  for (const { user, tz } of eligibleUsers) {
+    const userToday = getTodayInTimezone(tz);
+    const dateKey = userToday.toISOString();
+    if (!dateGroups.has(dateKey)) {
+      dateGroups.set(dateKey, { date: userToday, dayOfWeek: userToday.getUTCDay(), users: [] });
+    }
+    dateGroups.get(dateKey).users.push(user);
+  }
+
   let sent = 0;
 
-  for (const sub of subs) {
-    try {
-      const user = await User.findById(sub.userId, 'name email emailVerified settings');
-      if (!user) continue;
+  for (const { date, dayOfWeek, users: groupUsers } of dateGroups.values()) {
+    const groupUserIds = groupUsers.map((u) => u._id);
 
-      // Check if user wants daily reminders
-      const prefs = user.settings?.notifications?.dailyReminders;
-      if (prefs?.push === false && prefs?.email === false) continue;
+    // Bulk fetch habits scheduled for today for all users in this date group
+    const habits = await Habit.find({
+      userId: { $in: groupUserIds },
+      isArchived: false,
+      frequency: { $in: [dayOfWeek] },
+    });
 
-      const tz = user.settings?.timezone || 'UTC';
-      const reminderTime = user.settings?.reminderTime || '08:00';
-      const [targetHour] = reminderTime.split(':').map(Number);
+    // Bulk fetch logs for today for these habits
+    const habitIds = habits.map((h) => h._id);
+    const logs = await HabitLog.find({
+      userId: { $in: groupUserIds },
+      date,
+      habitId: { $in: habitIds },
+    });
 
-      // Check if current UTC hour matches user's reminder hour in their timezone
-      const userLocalHour = getHourInTimezone(new Date(), tz);
-      if (userLocalHour !== targetHour) continue;
+    // Index logs by `userId:habitId`
+    const logSet = new Set(logs.map((l) => `${l.userId}:${l.habitId}`));
 
-      // Get today's date in user's timezone
-      const userToday = getTodayInTimezone(tz);
-      const dayOfWeek = userToday.getUTCDay();
+    // Process each user
+    for (const user of groupUsers) {
+      try {
+        const userHabits = habits.filter((h) => h.userId.toString() === user._id.toString());
+        const pendingHabits = userHabits.filter((h) => !logSet.has(`${user._id}:${h._id}`));
 
-      // Find habits scheduled for today
-      const habits = await Habit.find({
-        userId: sub.userId,
-        isArchived: false,
-        frequency: { $in: [dayOfWeek] },
-      });
-      if (habits.length === 0) continue;
+        if (pendingHabits.length === 0) continue;
 
-      // Find which habits are already logged
-      const logs = await HabitLog.find({
-        userId: sub.userId,
-        date: userToday,
-        habitId: { $in: habits.map((h) => h._id) },
-      });
+        const habitNames = pendingHabits.slice(0, 3).map((h) => h.name).join(', ');
+        const extra = pendingHabits.length > 3 ? ` and ${pendingHabits.length - 3} more` : '';
 
-      const loggedIds = new Set(logs.map((l) => l.habitId.toString()));
-      const pendingHabits = habits.filter((h) => !loggedIds.has(h._id.toString()));
-      if (pendingHabits.length === 0) continue;
-
-      const habitNames = pendingHabits.slice(0, 3).map((h) => h.name).join(', ');
-      const extra = pendingHabits.length > 3 ? ` and ${pendingHabits.length - 3} more` : '';
-
-      await notificationService.sendWithUser(user, NOTIFICATION_TYPES.DAILY_REMINDER, {
-        pushPayload: {
-          title: 'Daily Habits Reminder',
-          body: `You have ${pendingHabits.length} habit${pendingHabits.length > 1 ? 's' : ''} to complete today: ${habitNames}${extra}`,
-          icon: '/pwa-192x192.png',
-          tag: 'daily-reminder',
-          data: { url: '/' },
-        },
-        emailFn: (u) =>
-          emailService.sendDailyReminderEmail(u.email, u.name, pendingHabits),
-      });
-      sent++;
-    } catch (err) {
-      console.error(`[Daily Reminder] Error for user ${sub.userId}:`, err.message);
+        await notificationService.sendWithUser(user, NOTIFICATION_TYPES.DAILY_REMINDER, {
+          pushPayload: {
+            title: 'Daily Habits Reminder',
+            body: `You have ${pendingHabits.length} habit${pendingHabits.length > 1 ? 's' : ''} to complete today: ${habitNames}${extra}`,
+            icon: '/pwa-192x192.png',
+            tag: 'daily-reminder',
+            data: { url: '/' },
+          },
+          emailFn: (u) =>
+            emailService.sendDailyReminderEmail(u.email, u.name, pendingHabits),
+        });
+        sent++;
+      } catch (err) {
+        console.error(`[Daily Reminder] Error for user ${user._id}:`, err.message);
+      }
     }
   }
 
@@ -80,7 +107,6 @@ async function sendDailyReminders() {
 }
 
 export function startDailyReminderJob() {
-  // Run every hour at minute 0
   cron.schedule('0 * * * *', async () => {
     try {
       await sendDailyReminders();

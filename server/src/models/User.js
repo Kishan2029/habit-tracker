@@ -32,8 +32,19 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    emailVerificationCode: String,
-    emailVerificationExpires: Date,
+    emailVerificationCode: {
+      type: String,
+      select: false,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
+    emailVerificationAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
     settings: {
       theme: {
         type: String,
@@ -112,6 +123,7 @@ userSchema.methods.toJSON = function () {
   delete obj.resetPasswordExpires;
   delete obj.emailVerificationCode;
   delete obj.emailVerificationExpires;
+  delete obj.emailVerificationAttempts;
   return obj;
 };
 
