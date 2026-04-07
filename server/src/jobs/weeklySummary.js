@@ -1,6 +1,5 @@
 import cron from 'node-cron';
 import User from '../models/User.js';
-import PushSubscription from '../models/PushSubscription.js';
 import weeklySummaryService from '../services/weeklySummaryService.js';
 import { getHourInTimezone, getTodayInTimezone } from '../utils/dateHelpers.js';
 
@@ -9,14 +8,11 @@ const WEEKLY_SUMMARY_HOUR = 9; // 9:00 AM in user's local time
 async function sendWeeklySummariesByTimezone() {
   console.log('[Cron] Running weekly summary check...');
 
-  const subs = await PushSubscription.find({}, 'userId');
-  if (subs.length === 0) return;
-
-  const subscribedUserIds = subs.map((s) => s.userId);
-
   const users = await User.find({
-    _id: { $in: subscribedUserIds },
-    'settings.notifications.weeklySummary.push': { $ne: false },
+    $or: [
+      { 'settings.notifications.weeklySummary.push': { $ne: false } },
+      { 'settings.notifications.weeklySummary.email': true, emailVerified: true },
+    ],
   }, 'name email emailVerified settings');
 
   let sent = 0;
@@ -28,7 +24,8 @@ async function sendWeeklySummariesByTimezone() {
 
       if (userLocalHour !== WEEKLY_SUMMARY_HOUR) continue;
 
-      // Check if it's Sunday in the user's local timezone
+      // getTodayInTimezone returns a UTC-midnight Date representing the user's
+      // local date, so getUTCDay() gives the correct local day-of-week.
       const userToday = getTodayInTimezone(tz);
       if (userToday.getUTCDay() !== 0) continue;
 

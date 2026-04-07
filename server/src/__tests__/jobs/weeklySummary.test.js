@@ -12,10 +12,6 @@ jest.unstable_mockModule('../../models/User.js', () => ({
   default: { find: jest.fn() },
 }));
 
-jest.unstable_mockModule('../../models/PushSubscription.js', () => ({
-  default: { find: jest.fn() },
-}));
-
 jest.unstable_mockModule('../../services/weeklySummaryService.js', () => ({
   default: {
     sendWeeklySummaryForUser: jest.fn(),
@@ -28,7 +24,6 @@ jest.unstable_mockModule('../../utils/dateHelpers.js', () => ({
 }));
 
 const { default: User } = await import('../../models/User.js');
-const { default: PushSubscription } = await import('../../models/PushSubscription.js');
 const { default: weeklySummaryService } = await import('../../services/weeklySummaryService.js');
 const { getHourInTimezone, getTodayInTimezone } = await import('../../utils/dateHelpers.js');
 const { startWeeklySummaryJob } = await import('../../jobs/weeklySummary.js');
@@ -49,7 +44,6 @@ describe('Weekly Summary Job', () => {
       _id: 'u1',
       settings: { timezone: 'America/New_York', notifications: { weeklySummary: { push: true } } },
     };
-    PushSubscription.find.mockResolvedValue([{ userId: 'u1' }]);
     User.find.mockResolvedValue([user]);
     getHourInTimezone.mockReturnValue(9);
     // Sunday = day 0
@@ -69,7 +63,6 @@ describe('Weekly Summary Job', () => {
       _id: 'u1',
       settings: { timezone: 'UTC', notifications: { weeklySummary: { push: true } } },
     };
-    PushSubscription.find.mockResolvedValue([{ userId: 'u1' }]);
     User.find.mockResolvedValue([user]);
     getHourInTimezone.mockReturnValue(14); // not 9
     getTodayInTimezone.mockReturnValue(new Date('2026-04-05T00:00:00.000Z'));
@@ -87,7 +80,6 @@ describe('Weekly Summary Job', () => {
       _id: 'u1',
       settings: { timezone: 'UTC', notifications: { weeklySummary: { push: true } } },
     };
-    PushSubscription.find.mockResolvedValue([{ userId: 'u1' }]);
     User.find.mockResolvedValue([user]);
     getHourInTimezone.mockReturnValue(9);
     // Monday = day 1
@@ -102,7 +94,6 @@ describe('Weekly Summary Job', () => {
   });
 
   it('should handle errors gracefully when weekly summary fails', async () => {
-    PushSubscription.find.mockResolvedValue([{ userId: 'u1' }]);
     User.find.mockRejectedValue(new Error('DB down'));
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -112,7 +103,7 @@ describe('Weekly Summary Job', () => {
     await cronCallback();
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[Cron] Weekly summary failed:'),
+      '[Cron] Weekly summary failed:',
       'DB down'
     );
     consoleSpy.mockRestore();
