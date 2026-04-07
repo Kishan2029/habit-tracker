@@ -28,13 +28,20 @@ jest.unstable_mockModule('../../services/emailService.js', () => ({
 const { default: User } = await import('../../models/User.js');
 const { default: PushSubscription } = await import('../../models/PushSubscription.js');
 const { default: pushService } = await import('../../services/pushService.js');
-const { default: emailService } = await import('../../services/emailService.js');
 const { default: notificationService } = await import('../../services/notificationService.js');
 
+const pushPayload = { title: 'Test', body: 'Hello' };
+
+/** Flush microtasks so fire-and-forget promises settle. */
+const flushAsync = () => new Promise((r) => setTimeout(r, 10));
+
 describe('NotificationService', () => {
+  let emailFn;
+
   beforeEach(() => {
     jest.clearAllMocks();
     pushService.sendNotification.mockResolvedValue();
+    emailFn = jest.fn().mockResolvedValue();
   });
 
   describe('getScheduledUsers', () => {
@@ -73,9 +80,6 @@ describe('NotificationService', () => {
   });
 
   describe('send', () => {
-    const pushPayload = { title: 'Test', body: 'Hello' };
-    const emailFn = jest.fn().mockResolvedValue();
-
     it('should call emailFn when user opted in for email and email is verified', async () => {
       const user = {
         _id: 'u1',
@@ -87,15 +91,13 @@ describe('NotificationService', () => {
       User.findById.mockResolvedValue(user);
 
       await notificationService.send('u1', 'streakMilestones', { pushPayload, emailFn });
-
-      // Wait for fire-and-forget promises
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).toHaveBeenCalledWith(user);
       expect(pushService.sendNotification).toHaveBeenCalledWith('u1', pushPayload);
     });
 
-    it('should NOT call emailFn when user opted out of email', async () => {
+    it('should not call emailFn when user opted out of email', async () => {
       User.findById.mockResolvedValue({
         _id: 'u2',
         emailVerified: true,
@@ -104,13 +106,13 @@ describe('NotificationService', () => {
       });
 
       await notificationService.send('u2', 'dailyReminders', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).not.toHaveBeenCalled();
       expect(pushService.sendNotification).toHaveBeenCalled();
     });
 
-    it('should NOT call emailFn when email is not verified even if opted in', async () => {
+    it('should not call emailFn when email is not verified even if opted in', async () => {
       User.findById.mockResolvedValue({
         _id: 'u3',
         emailVerified: false,
@@ -119,7 +121,7 @@ describe('NotificationService', () => {
       });
 
       await notificationService.send('u3', 'streakMilestones', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).not.toHaveBeenCalled();
     });
@@ -133,10 +135,9 @@ describe('NotificationService', () => {
       });
 
       await notificationService.send('u4', 'dailyReminders', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).not.toHaveBeenCalled();
-      // push defaults to true
       expect(pushService.sendNotification).toHaveBeenCalled();
     });
 
@@ -160,14 +161,40 @@ describe('NotificationService', () => {
         'DB error'
       );
       expect(emailFn).not.toHaveBeenCalled();
+      expect(pushService.sendNotification).not.toHaveBeenCalled();
       consoleSpy.mockRestore();
+    });
+
+    it('should send only push when emailFn is not provided', async () => {
+      User.findById.mockResolvedValue({
+        _id: 'u6',
+        emailVerified: true,
+        settings: { notifications: { streakMilestones: { push: true, email: true } } },
+      });
+
+      await notificationService.send('u6', 'streakMilestones', { pushPayload });
+      await flushAsync();
+
+      expect(pushService.sendNotification).toHaveBeenCalledWith('u6', pushPayload);
+    });
+
+    it('should send only email when pushPayload is not provided', async () => {
+      const user = {
+        _id: 'u7',
+        emailVerified: true,
+        settings: { notifications: { goalCompletion: { push: true, email: true } } },
+      };
+      User.findById.mockResolvedValue(user);
+
+      await notificationService.send('u7', 'goalCompletion', { emailFn });
+      await flushAsync();
+
+      expect(pushService.sendNotification).not.toHaveBeenCalled();
+      expect(emailFn).toHaveBeenCalledWith(user);
     });
   });
 
   describe('sendWithUser', () => {
-    const pushPayload = { title: 'Test', body: 'Hello' };
-    const emailFn = jest.fn().mockResolvedValue();
-
     it('should call emailFn when user opted in and email is verified', async () => {
       const user = {
         _id: 'u1',
@@ -178,13 +205,13 @@ describe('NotificationService', () => {
       };
 
       await notificationService.sendWithUser(user, 'goalCompletion', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).toHaveBeenCalledWith(user);
       expect(pushService.sendNotification).toHaveBeenCalledWith('u1', pushPayload);
     });
 
-    it('should NOT call emailFn when user opted out', async () => {
+    it('should not call emailFn when user opted out', async () => {
       const user = {
         _id: 'u2',
         emailVerified: true,
@@ -192,12 +219,12 @@ describe('NotificationService', () => {
       };
 
       await notificationService.sendWithUser(user, 'missedAlerts', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).not.toHaveBeenCalled();
     });
 
-    it('should NOT call emailFn when email not verified', async () => {
+    it('should not call emailFn when email not verified', async () => {
       const user = {
         _id: 'u3',
         emailVerified: false,
@@ -205,7 +232,7 @@ describe('NotificationService', () => {
       };
 
       await notificationService.sendWithUser(user, 'goalCompletion', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(emailFn).not.toHaveBeenCalled();
       expect(pushService.sendNotification).not.toHaveBeenCalled();
@@ -219,7 +246,7 @@ describe('NotificationService', () => {
       };
 
       await notificationService.sendWithUser(user, 'weeklySummary', { pushPayload, emailFn });
-      await new Promise((r) => setTimeout(r, 10));
+      await flushAsync();
 
       expect(pushService.sendNotification).not.toHaveBeenCalled();
       expect(emailFn).toHaveBeenCalledWith(user);
