@@ -1,6 +1,7 @@
 import cron from 'node-cron';
-import User from '../models/User.js';
+import notificationService from '../services/notificationService.js';
 import weeklySummaryService from '../services/weeklySummaryService.js';
+import { NOTIFICATION_TYPES } from '../config/constants.js';
 import { getHourInTimezone, getTodayInTimezone } from '../utils/dateHelpers.js';
 
 const WEEKLY_SUMMARY_HOUR = 9; // 9:00 AM in user's local time
@@ -8,12 +9,10 @@ const WEEKLY_SUMMARY_HOUR = 9; // 9:00 AM in user's local time
 async function sendWeeklySummariesByTimezone() {
   console.log('[Cron] Running weekly summary check...');
 
-  const users = await User.find({
-    $or: [
-      { 'settings.notifications.weeklySummary.push': { $ne: false } },
-      { 'settings.notifications.weeklySummary.email': true, emailVerified: true },
-    ],
-  }, 'name email emailVerified settings');
+  const users = await notificationService.getScheduledUsers(
+    NOTIFICATION_TYPES.WEEKLY_SUMMARY,
+    'name email emailVerified settings'
+  );
 
   let sent = 0;
 

@@ -55,37 +55,6 @@ class WeeklySummaryService {
     };
   }
 
-  async sendWeeklySummaries() {
-    const users = await notificationService.getScheduledUsers(
-      NOTIFICATION_TYPES.WEEKLY_SUMMARY,
-      'name email emailVerified settings'
-    );
-    let sent = 0;
-
-    for (const user of users) {
-      try {
-        const summary = await this.generateSummary(user._id);
-        if (!summary) continue;
-
-        await notificationService.sendWithUser(user, NOTIFICATION_TYPES.WEEKLY_SUMMARY, {
-          pushPayload: {
-            title: `Weekly Summary: ${summary.completionRate}% completion`,
-            body: `${summary.completedCount}/${summary.totalExpected} habits done. Best streak: ${summary.bestHabit} (${summary.bestStreak}d)`,
-            icon: '/pwa-192x192.png',
-            tag: 'weekly-summary',
-          },
-          emailFn: (u) =>
-            emailService.sendWeeklySummaryEmail(u.email, u.name, summary),
-        });
-        sent++;
-      } catch (err) {
-        console.error(`[Weekly Summary] Error for user ${user._id}:`, err.message);
-      }
-    }
-
-    console.log(`[Weekly Summary] Sent ${sent} notifications`);
-  }
-
   async sendWeeklySummaryForUser(user) {
     const summary = await this.generateSummary(user._id);
     if (!summary) return false;

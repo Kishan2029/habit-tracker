@@ -5,34 +5,23 @@ import emailService from './emailService.js';
 
 class NotificationService {
   async getScheduledUsers(type, projection = 'name email emailVerified settings') {
-    const [subs, emailUsers] = await Promise.all([
-      PushSubscription.find({}, 'userId'),
-      User.find(
-        {
-          emailVerified: true,
-          [`settings.notifications.${type}.email`]: true,
-        },
-        projection
-      ),
-    ]);
-
+    const subs = await PushSubscription.find({}, 'userId');
     const subscribedUserIds = [...new Set(subs.map((sub) => sub.userId.toString()))];
-    const pushUsers = subscribedUserIds.length > 0
-      ? await User.find(
+    return User.find(
+      {
+        $or: [
           {
             _id: { $in: subscribedUserIds },
             [`settings.notifications.${type}.push`]: { $ne: false },
           },
-          projection
-        )
-      : [];
-
-    const usersById = new Map();
-    for (const user of [...pushUsers, ...emailUsers]) {
-      usersById.set(user._id.toString(), user);
-    }
-
-    return [...usersById.values()];
+          {
+            emailVerified: true,
+            [`settings.notifications.${type}.email`]: true,
+          },
+        ],
+      },
+      projection
+    );
   }
 
   /**

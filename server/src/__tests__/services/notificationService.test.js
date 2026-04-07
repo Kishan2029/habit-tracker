@@ -41,40 +41,31 @@ describe('NotificationService', () => {
         { userId: { toString: () => 'shared-user' } },
       ]);
 
-      User.find
-        .mockResolvedValueOnce([
-          { _id: { toString: () => 'email-user' }, email: 'email@test.com' },
-          { _id: { toString: () => 'shared-user' }, email: 'shared@test.com' },
-        ])
-        .mockResolvedValueOnce([
-          { _id: { toString: () => 'push-user' }, email: 'push@test.com' },
-          { _id: { toString: () => 'shared-user' }, email: 'shared@test.com' },
-        ]);
+      User.find.mockResolvedValue([
+        { _id: { toString: () => 'push-user' }, email: 'push@test.com' },
+        { _id: { toString: () => 'shared-user' }, email: 'shared@test.com' },
+        { _id: { toString: () => 'email-user' }, email: 'email@test.com' },
+      ]);
 
       const users = await notificationService.getScheduledUsers('weeklySummary');
 
       expect(PushSubscription.find).toHaveBeenCalledWith({}, 'userId');
-      expect(User.find).toHaveBeenNthCalledWith(
-        1,
+      expect(User.find).toHaveBeenCalledWith(
         {
-          emailVerified: true,
-          'settings.notifications.weeklySummary.email': true,
+          $or: [
+            {
+              _id: { $in: ['push-user', 'shared-user'] },
+              'settings.notifications.weeklySummary.push': { $ne: false },
+            },
+            {
+              emailVerified: true,
+              'settings.notifications.weeklySummary.email': true,
+            },
+          ],
         },
         'name email emailVerified settings'
       );
-      expect(User.find).toHaveBeenNthCalledWith(
-        2,
-        {
-          _id: { $in: ['push-user', 'shared-user'] },
-          'settings.notifications.weeklySummary.push': { $ne: false },
-        },
-        'name email emailVerified settings'
-      );
-      expect(users.map((user) => user._id.toString())).toEqual([
-        'push-user',
-        'shared-user',
-        'email-user',
-      ]);
+      expect(users.map((user) => user._id.toString())).toEqual(['push-user', 'shared-user', 'email-user']);
     });
   });
 });

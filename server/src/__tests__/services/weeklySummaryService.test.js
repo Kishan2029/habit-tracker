@@ -10,7 +10,6 @@ jest.unstable_mockModule('../../models/Habit.js', () => ({
 
 jest.unstable_mockModule('../../services/notificationService.js', () => ({
   default: {
-    getScheduledUsers: jest.fn(),
     sendWithUser: jest.fn(),
   },
 }));
@@ -99,8 +98,17 @@ describe('WeeklySummaryService', () => {
     });
   });
 
-  describe('sendWeeklySummaries', () => {
-    it('should send summaries to email-only users returned by scheduled selection', async () => {
+  describe('sendWeeklySummaryForUser', () => {
+    it('should return false when there is no summary to send', async () => {
+      weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(null);
+
+      const result = await weeklySummaryService.sendWeeklySummaryForUser({ _id: 'user1' });
+
+      expect(result).toBe(false);
+      expect(notificationService.sendWithUser).not.toHaveBeenCalled();
+    });
+
+    it('should send the summary payload for a single user', async () => {
       const user = {
         _id: 'user1',
         email: 'user@test.com',
@@ -118,17 +126,12 @@ describe('WeeklySummaryService', () => {
         bestHabit: 'Exercise',
         bestStreak: 8,
       };
-
-      notificationService.getScheduledUsers.mockResolvedValue([user]);
-      notificationService.sendWithUser.mockResolvedValue();
       weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(summary);
+      notificationService.sendWithUser.mockResolvedValue();
 
-      await weeklySummaryService.sendWeeklySummaries();
+      const result = await weeklySummaryService.sendWeeklySummaryForUser(user);
 
-      expect(notificationService.getScheduledUsers).toHaveBeenCalledWith(
-        'weeklySummary',
-        'name email emailVerified settings'
-      );
+      expect(result).toBe(true);
       expect(weeklySummaryService.generateSummary).toHaveBeenCalledWith('user1');
       expect(notificationService.sendWithUser).toHaveBeenCalledWith(
         user,
@@ -140,17 +143,6 @@ describe('WeeklySummaryService', () => {
           emailFn: expect.any(Function),
         })
       );
-    });
-  });
-
-  describe('sendWeeklySummaryForUser', () => {
-    it('should return false when there is no summary to send', async () => {
-      weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(null);
-
-      const result = await weeklySummaryService.sendWeeklySummaryForUser({ _id: 'user1' });
-
-      expect(result).toBe(false);
-      expect(notificationService.sendWithUser).not.toHaveBeenCalled();
     });
   });
 });
