@@ -85,6 +85,23 @@ class WeeklySummaryService {
 
     console.log(`[Weekly Summary] Sent ${sent} notifications`);
   }
+
+  async sendWeeklySummaryForUser(user) {
+    const summary = await this.generateSummary(user._id);
+    if (!summary) return false;
+
+    await notificationService.sendWithUser(user, NOTIFICATION_TYPES.WEEKLY_SUMMARY, {
+      pushPayload: {
+        title: `Weekly Summary: ${summary.completionRate}% completion`,
+        body: `${summary.completedCount}/${summary.totalExpected} habits done. Best streak: ${summary.bestHabit} (${summary.bestStreak}d)`,
+        icon: '/pwa-192x192.png',
+        tag: 'weekly-summary',
+      },
+      emailFn: (u) =>
+        emailService.sendWeeklySummaryEmail(u.email, u.name, summary),
+    });
+    return true;
+  }
 }
 
 export default new WeeklySummaryService();

@@ -17,13 +17,17 @@ jest.unstable_mockModule('../../models/HabitLog.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../models/SharedHabit.js', () => ({
-  default: {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    findOneAndDelete: jest.fn(),
-  },
-}));
+jest.unstable_mockModule('../../models/SharedHabit.js', () => {
+  const mockFind = jest.fn();
+  mockFind.mockReturnValue({ select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }) });
+  return {
+    default: {
+      find: mockFind,
+      findOne: jest.fn(),
+      findOneAndDelete: jest.fn(),
+    },
+  };
+});
 
 jest.unstable_mockModule('../../services/cacheService.js', () => ({
   default: {
@@ -50,11 +54,6 @@ describe('HabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
-    SharedHabit.find.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        lean: jest.fn().mockResolvedValue([]),
-      }),
-    });
     SharedHabit.findOne.mockResolvedValue(null);
   });
 
@@ -263,6 +262,7 @@ describe('HabitService', () => {
         userId: { toString: () => 'user1' },
       };
       Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue(null);
       HabitLog.deleteMany.mockResolvedValue({ deletedCount: 5 });
       SharedHabit.findOneAndDelete.mockResolvedValue(true);
       Habit.findByIdAndDelete.mockResolvedValue(true);

@@ -17,7 +17,6 @@ async function sendMissedAlerts() {
     'name email emailVerified settings'
   );
   if (users.length === 0) return;
-
   // Step 2: Filter to users whose local time is the missed alert hour
   const eligibleUsers = [];
   for (const user of users) {

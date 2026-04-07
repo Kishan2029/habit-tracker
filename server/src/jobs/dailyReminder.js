@@ -15,7 +15,6 @@ async function sendDailyReminders() {
     'name email emailVerified settings'
   );
   if (users.length === 0) return;
-
   // Step 2: Filter to users whose local time matches their reminder hour
   const eligibleUsers = [];
   for (const user of users) {

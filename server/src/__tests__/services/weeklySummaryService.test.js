@@ -142,4 +142,15 @@ describe('WeeklySummaryService', () => {
       );
     });
   });
+
+  describe('sendWeeklySummaryForUser', () => {
+    it('should return false when there is no summary to send', async () => {
+      weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(null);
+
+      const result = await weeklySummaryService.sendWeeklySummaryForUser({ _id: 'user1' });
+
+      expect(result).toBe(false);
+      expect(notificationService.sendWithUser).not.toHaveBeenCalled();
+    });
+  });
 });
