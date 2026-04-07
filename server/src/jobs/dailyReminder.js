@@ -2,7 +2,6 @@ import cron from 'node-cron';
 import User from '../models/User.js';
 import Habit from '../models/Habit.js';
 import HabitLog from '../models/HabitLog.js';
-import PushSubscription from '../models/PushSubscription.js';
 import notificationService from '../services/notificationService.js';
 import emailService from '../services/emailService.js';
 import { NOTIFICATION_TYPES } from '../config/constants.js';
@@ -11,16 +10,12 @@ import { getHourInTimezone, getTodayInTimezone } from '../utils/dateHelpers.js';
 async function sendDailyReminders() {
   console.log('[Cron] Running daily reminder check...');
 
-  // Step 1: Get all subscribed user IDs
-  const subs = await PushSubscription.find({}, 'userId');
-  if (subs.length === 0) return;
-
-  const subscribedUserIds = subs.map((s) => s.userId);
-
-  // Step 2: Bulk-load users who have reminders enabled
+  // Step 1: Get users who have push or email reminders enabled
   const users = await User.find({
-    _id: { $in: subscribedUserIds },
-    'settings.notifications.dailyReminders.push': { $ne: false },
+    $or: [
+      { 'settings.notifications.dailyReminders.push': { $ne: false } },
+      { 'settings.notifications.dailyReminders.email': true, emailVerified: true },
+    ],
   }, 'name email emailVerified settings');
 
   // Step 3: Filter to users whose local time matches their reminder hour

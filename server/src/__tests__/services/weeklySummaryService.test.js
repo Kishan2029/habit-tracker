@@ -8,12 +8,16 @@ jest.unstable_mockModule('../../models/Habit.js', () => ({
   default: { find: jest.fn() },
 }));
 
-jest.unstable_mockModule('../../models/PushSubscription.js', () => ({
-  default: { find: jest.fn() },
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: { send: jest.fn(), sendWithUser: jest.fn().mockResolvedValue() },
 }));
 
-jest.unstable_mockModule('../../services/pushService.js', () => ({
-  default: { sendNotification: jest.fn() },
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  default: { isConfigured: false, sendWeeklySummaryEmail: jest.fn() },
+}));
+
+jest.unstable_mockModule('../../config/constants.js', () => ({
+  NOTIFICATION_TYPES: { WEEKLY_SUMMARY: 'weeklySummary' },
 }));
 
 const { default: HabitLog } = await import('../../models/HabitLog.js');

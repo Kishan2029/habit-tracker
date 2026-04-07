@@ -42,6 +42,15 @@ jest.unstable_mockModule('../../config/constants.js', () => ({
     ADMIN: 'admin',
   },
   MAX_BACKDATE_DAYS: 7,
+  NOTIFICATION_TYPES: {
+    DAILY_REMINDER: 'dailyReminders',
+    STREAK_MILESTONE: 'streakMilestones',
+    MISSED_ALERT: 'missedAlerts',
+    SHARED_ACTIVITY: 'sharedActivity',
+    GOAL_COMPLETION: 'goalCompletion',
+    WEEKLY_SUMMARY: 'weeklySummary',
+  },
+  STREAK_MILESTONES: [7, 14, 21, 30, 50, 100, 200, 365],
 }));
 
 jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
@@ -49,6 +58,21 @@ jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
     getUserRoleForHabit: jest.fn(),
     getSharedHabitIdsForUser: jest.fn(),
     getSharingInfo: jest.fn(),
+  },
+}));
+
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: {
+    send: jest.fn().mockResolvedValue(),
+    sendWithUser: jest.fn().mockResolvedValue(),
+  },
+}));
+
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  default: {
+    isConfigured: false,
+    sendStreakMilestoneEmail: jest.fn(),
+    sendGoalCompletionEmail: jest.fn(),
   },
 }));
 
