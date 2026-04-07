@@ -138,8 +138,20 @@ class EmailService {
     await this._send(email, template.subject, template.html, template.label);
   }
 
-  async sendWeeklySummaryEmail(email, name, { completionRate, completed, total, bestHabit, bestStreak }) {
-    const template = buildWeeklySummaryEmail({ name, completionRate, completed, total, bestHabit, bestStreak, clientUrl: this.env.clientUrl });
+  async sendWeeklySummaryEmail(
+    email,
+    name,
+    { completionRate, completed, total, completedCount, totalExpected, bestHabit, bestStreak }
+  ) {
+    const template = buildWeeklySummaryEmail({
+      name,
+      completionRate,
+      completed: completed ?? completedCount,
+      total: total ?? totalExpected,
+      bestHabit,
+      bestStreak,
+      clientUrl: this.env.clientUrl,
+    });
     await this._send(email, template.subject, template.html, template.label);
   }
 }

@@ -9,19 +9,20 @@ jest.unstable_mockModule('../../models/Habit.js', () => ({
 }));
 
 jest.unstable_mockModule('../../services/notificationService.js', () => ({
-  default: { send: jest.fn(), sendWithUser: jest.fn().mockResolvedValue() },
+  default: {
+    sendWithUser: jest.fn(),
+  },
 }));
 
 jest.unstable_mockModule('../../services/emailService.js', () => ({
-  default: { isConfigured: false, sendWeeklySummaryEmail: jest.fn() },
-}));
-
-jest.unstable_mockModule('../../config/constants.js', () => ({
-  NOTIFICATION_TYPES: { WEEKLY_SUMMARY: 'weeklySummary' },
+  default: {
+    sendWeeklySummaryEmail: jest.fn(),
+  },
 }));
 
 const { default: HabitLog } = await import('../../models/HabitLog.js');
 const { default: Habit } = await import('../../models/Habit.js');
+const { default: notificationService } = await import('../../services/notificationService.js');
 const { default: weeklySummaryService } = await import('../../services/weeklySummaryService.js');
 
 describe('WeeklySummaryService', () => {
@@ -94,6 +95,54 @@ describe('WeeklySummaryService', () => {
       expect(result.totalExpected).toBe(7);
       expect(result.completedCount).toBe(1);
       expect(result.bestHabit).toBe('Exercise');
+    });
+  });
+
+  describe('sendWeeklySummaryForUser', () => {
+    it('should return false when there is no summary to send', async () => {
+      weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(null);
+
+      const result = await weeklySummaryService.sendWeeklySummaryForUser({ _id: 'user1' });
+
+      expect(result).toBe(false);
+      expect(notificationService.sendWithUser).not.toHaveBeenCalled();
+    });
+
+    it('should send the summary payload for a single user', async () => {
+      const user = {
+        _id: 'user1',
+        email: 'user@test.com',
+        emailVerified: true,
+        settings: {
+          notifications: {
+            weeklySummary: { push: false, email: true },
+          },
+        },
+      };
+      const summary = {
+        completionRate: 80,
+        completedCount: 4,
+        totalExpected: 5,
+        bestHabit: 'Exercise',
+        bestStreak: 8,
+      };
+      weeklySummaryService.generateSummary = jest.fn().mockResolvedValue(summary);
+      notificationService.sendWithUser.mockResolvedValue();
+
+      const result = await weeklySummaryService.sendWeeklySummaryForUser(user);
+
+      expect(result).toBe(true);
+      expect(weeklySummaryService.generateSummary).toHaveBeenCalledWith('user1');
+      expect(notificationService.sendWithUser).toHaveBeenCalledWith(
+        user,
+        'weeklySummary',
+        expect.objectContaining({
+          pushPayload: expect.objectContaining({
+            title: 'Weekly Summary: 80% completion',
+          }),
+          emailFn: expect.any(Function),
+        })
+      );
     });
   });
 });

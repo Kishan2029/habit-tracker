@@ -1,5 +1,4 @@
 import cron from 'node-cron';
-import User from '../models/User.js';
 import Habit from '../models/Habit.js';
 import HabitLog from '../models/HabitLog.js';
 import notificationService from '../services/notificationService.js';
@@ -10,15 +9,13 @@ import { getHourInTimezone, getTodayInTimezone } from '../utils/dateHelpers.js';
 async function sendDailyReminders() {
   console.log('[Cron] Running daily reminder check...');
 
-  // Step 1: Get users who have push or email reminders enabled
-  const users = await User.find({
-    $or: [
-      { 'settings.notifications.dailyReminders.push': { $ne: false } },
-      { 'settings.notifications.dailyReminders.email': true, emailVerified: true },
-    ],
-  }, 'name email emailVerified settings');
-
-  // Step 3: Filter to users whose local time matches their reminder hour
+  // Step 1: Load users who can actually receive push or email reminders.
+  const users = await notificationService.getScheduledUsers(
+    NOTIFICATION_TYPES.DAILY_REMINDER,
+    'name email emailVerified settings'
+  );
+  if (users.length === 0) return;
+  // Step 2: Filter to users whose local time matches their reminder hour
   const eligibleUsers = [];
   for (const user of users) {
     const tz = user.settings?.timezone || 'UTC';
@@ -32,9 +29,7 @@ async function sendDailyReminders() {
 
   if (eligibleUsers.length === 0) return;
 
-  // Step 4: Bulk-load habits and logs for eligible users
-  const eligibleUserIds = eligibleUsers.map((e) => e.user._id);
-
+  // Step 3: Bulk-load habits and logs for eligible users
   // Group users by their local today date (most will share the same date)
   const dateGroups = new Map();
   for (const { user, tz } of eligibleUsers) {

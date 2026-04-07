@@ -54,6 +54,7 @@ describe('HabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
+    SharedHabit.findOne.mockResolvedValue(null);
   });
 
   describe('_cacheKey', () => {
@@ -86,7 +87,7 @@ describe('HabitService', () => {
       });
 
       const result = await habitService.getAll('user1');
-      expect(result).toEqual(habits);
+      expect(result).toEqual([{ _id: 'h1', name: 'Exercise', isShared: false }]);
       expect(cache.set).toHaveBeenCalled();
     });
 
