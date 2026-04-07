@@ -13,7 +13,7 @@ class EmailVerificationService {
   }
 
   async sendVerification(userId) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+emailVerificationExpires');
     if (!user) throw new AppError('User not found', 404);
 
     if (user.emailVerified) {

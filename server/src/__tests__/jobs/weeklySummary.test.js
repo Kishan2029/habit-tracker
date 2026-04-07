@@ -8,13 +8,24 @@ jest.unstable_mockModule('node-cron', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: { getScheduledUsers: jest.fn() },
+}));
+
 jest.unstable_mockModule('../../services/weeklySummaryService.js', () => ({
   default: {
-    sendWeeklySummaries: jest.fn(),
+    sendWeeklySummaryForUser: jest.fn(),
   },
 }));
 
+jest.unstable_mockModule('../../utils/dateHelpers.js', () => ({
+  getHourInTimezone: jest.fn(),
+  getTodayInTimezone: jest.fn(),
+}));
+
+const { default: notificationService } = await import('../../services/notificationService.js');
 const { default: weeklySummaryService } = await import('../../services/weeklySummaryService.js');
+const { getHourInTimezone, getTodayInTimezone } = await import('../../utils/dateHelpers.js');
 const { startWeeklySummaryJob } = await import('../../jobs/weeklySummary.js');
 
 describe('Weekly Summary Job', () => {
@@ -22,24 +33,72 @@ describe('Weekly Summary Job', () => {
     jest.clearAllMocks();
   });
 
-  it('should schedule cron job for Sunday at 9 AM', () => {
+  it('should schedule cron job to run every hour', () => {
     startWeeklySummaryJob();
 
-    expect(mockSchedule).toHaveBeenCalledWith('0 9 * * 0', expect.any(Function));
+    expect(mockSchedule).toHaveBeenCalledWith('0 * * * *', expect.any(Function));
   });
 
-  it('should call sendWeeklySummaries when cron fires', async () => {
-    weeklySummaryService.sendWeeklySummaries.mockResolvedValue();
+  it('should send summary to users whose local time is 9 AM on Sunday', async () => {
+    const user = {
+      _id: 'u1',
+      settings: { timezone: 'America/New_York', notifications: { weeklySummary: { push: true } } },
+    };
+    notificationService.getScheduledUsers.mockResolvedValue([user]);
+    getHourInTimezone.mockReturnValue(9);
+    // Sunday = day 0
+    getTodayInTimezone.mockReturnValue(new Date('2026-04-05T00:00:00.000Z')); // a Sunday
+    weeklySummaryService.sendWeeklySummaryForUser.mockResolvedValue(true);
+
     startWeeklySummaryJob();
 
     const cronCallback = mockSchedule.mock.calls[0][1];
     await cronCallback();
 
-    expect(weeklySummaryService.sendWeeklySummaries).toHaveBeenCalled();
+    expect(notificationService.getScheduledUsers).toHaveBeenCalledWith(
+      'weeklySummary',
+      'name email emailVerified settings'
+    );
+    expect(weeklySummaryService.sendWeeklySummaryForUser).toHaveBeenCalledWith(user);
+  });
+
+  it('should skip users whose local time is not 9 AM', async () => {
+    const user = {
+      _id: 'u1',
+      settings: { timezone: 'UTC', notifications: { weeklySummary: { push: true } } },
+    };
+    notificationService.getScheduledUsers.mockResolvedValue([user]);
+    getHourInTimezone.mockReturnValue(14); // not 9
+    getTodayInTimezone.mockReturnValue(new Date('2026-04-05T00:00:00.000Z'));
+
+    startWeeklySummaryJob();
+
+    const cronCallback = mockSchedule.mock.calls[0][1];
+    await cronCallback();
+
+    expect(weeklySummaryService.sendWeeklySummaryForUser).not.toHaveBeenCalled();
+  });
+
+  it('should skip users when it is not Sunday in their timezone', async () => {
+    const user = {
+      _id: 'u1',
+      settings: { timezone: 'UTC', notifications: { weeklySummary: { push: true } } },
+    };
+    notificationService.getScheduledUsers.mockResolvedValue([user]);
+    getHourInTimezone.mockReturnValue(9);
+    // Monday = day 1
+    getTodayInTimezone.mockReturnValue(new Date('2026-04-06T00:00:00.000Z'));
+
+    startWeeklySummaryJob();
+
+    const cronCallback = mockSchedule.mock.calls[0][1];
+    await cronCallback();
+
+    expect(weeklySummaryService.sendWeeklySummaryForUser).not.toHaveBeenCalled();
   });
 
   it('should handle errors gracefully when weekly summary fails', async () => {
-    weeklySummaryService.sendWeeklySummaries.mockRejectedValue(new Error('DB down'));
+    notificationService.getScheduledUsers.mockRejectedValue(new Error('DB down'));
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     startWeeklySummaryJob();
@@ -48,7 +107,7 @@ describe('Weekly Summary Job', () => {
     await cronCallback();
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[Cron] Weekly summary failed:'),
+      '[Cron] Weekly summary failed:',
       'DB down'
     );
     consoleSpy.mockRestore();

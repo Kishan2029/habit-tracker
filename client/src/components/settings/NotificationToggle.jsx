@@ -120,7 +120,7 @@ export default function NotificationToggle() {
 
       const res = await updateProfile(update);
       updateUser(res.data.data.user);
-    } catch (err) {
+    } catch {
       toast.error('Failed to save preference');
     } finally {
       setSaving(false);
@@ -145,23 +145,23 @@ export default function NotificationToggle() {
     toast.success('Email verified! You can now enable email notifications.');
   };
 
-  if (!supported) {
-    return (
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Push notifications are not supported in this browser.
-      </p>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Master Push Toggle */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Push Notifications</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Required for all push notification types below</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {supported
+              ? 'Required for all push notification types below'
+              : 'Push notifications are not supported in this browser'}
+          </p>
         </div>
-        <Toggle enabled={pushEnabled} onChange={handlePushToggle} disabled={pushLoading} />
+        <Toggle
+          enabled={pushEnabled}
+          onChange={handlePushToggle}
+          disabled={!supported || pushLoading}
+        />
       </div>
 
       {/* Email Verification Status */}

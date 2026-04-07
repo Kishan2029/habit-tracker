@@ -1,8 +1,29 @@
 import User from '../models/User.js';
+import PushSubscription from '../models/PushSubscription.js';
 import pushService from './pushService.js';
 import emailService from './emailService.js';
 
 class NotificationService {
+  async getScheduledUsers(type, projection = 'name email emailVerified settings') {
+    const subs = await PushSubscription.find({}, 'userId');
+    const subscribedUserIds = [...new Set(subs.map((sub) => sub.userId.toString()))];
+    return User.find(
+      {
+        $or: [
+          {
+            _id: { $in: subscribedUserIds },
+            [`settings.notifications.${type}.push`]: { $ne: false },
+          },
+          {
+            emailVerified: true,
+            [`settings.notifications.${type}.email`]: true,
+          },
+        ],
+      },
+      projection
+    );
+  }
+
   /**
    * Send a notification respecting user preferences.
    * @param {string} userId

@@ -1,7 +1,5 @@
 import HabitLog from '../models/HabitLog.js';
 import Habit from '../models/Habit.js';
-import User from '../models/User.js';
-import PushSubscription from '../models/PushSubscription.js';
 import notificationService from './notificationService.js';
 import emailService from './emailService.js';
 import { NOTIFICATION_TYPES } from '../config/constants.js';
@@ -57,35 +55,21 @@ class WeeklySummaryService {
     };
   }
 
-  async sendWeeklySummaries() {
-    const subs = await PushSubscription.find();
-    let sent = 0;
+  async sendWeeklySummaryForUser(user) {
+    const summary = await this.generateSummary(user._id);
+    if (!summary) return false;
 
-    for (const sub of subs) {
-      try {
-        const user = await User.findById(sub.userId, 'name email emailVerified settings');
-        if (!user) continue;
-
-        const summary = await this.generateSummary(sub.userId);
-        if (!summary) continue;
-
-        await notificationService.sendWithUser(user, NOTIFICATION_TYPES.WEEKLY_SUMMARY, {
-          pushPayload: {
-            title: `Weekly Summary: ${summary.completionRate}% completion`,
-            body: `${summary.completedCount}/${summary.totalExpected} habits done. Best streak: ${summary.bestHabit} (${summary.bestStreak}d)`,
-            icon: '/pwa-192x192.png',
-            tag: 'weekly-summary',
-          },
-          emailFn: (u) =>
-            emailService.sendWeeklySummaryEmail(u.email, u.name, summary),
-        });
-        sent++;
-      } catch (err) {
-        console.error(`[Weekly Summary] Error for user ${sub.userId}:`, err.message);
-      }
-    }
-
-    console.log(`[Weekly Summary] Sent ${sent} notifications`);
+    await notificationService.sendWithUser(user, NOTIFICATION_TYPES.WEEKLY_SUMMARY, {
+      pushPayload: {
+        title: `Weekly Summary: ${summary.completionRate}% completion`,
+        body: `${summary.completedCount}/${summary.totalExpected} habits done. Best streak: ${summary.bestHabit} (${summary.bestStreak}d)`,
+        icon: '/pwa-192x192.png',
+        tag: 'weekly-summary',
+      },
+      emailFn: (u) =>
+        emailService.sendWeeklySummaryEmail(u.email, u.name, summary),
+    });
+    return true;
   }
 }
 

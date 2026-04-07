@@ -1,8 +1,6 @@
 import cron from 'node-cron';
-import User from '../models/User.js';
 import Habit from '../models/Habit.js';
 import HabitLog from '../models/HabitLog.js';
-import PushSubscription from '../models/PushSubscription.js';
 import notificationService from '../services/notificationService.js';
 import emailService from '../services/emailService.js';
 import { NOTIFICATION_TYPES } from '../config/constants.js';
@@ -13,19 +11,13 @@ const MISSED_ALERT_HOUR = 10; // 10:00 AM in user's local time
 async function sendMissedAlerts() {
   console.log('[Cron] Running missed alert check...');
 
-  // Step 1: Get all subscribed user IDs
-  const subs = await PushSubscription.find({}, 'userId');
-  if (subs.length === 0) return;
-
-  const subscribedUserIds = subs.map((s) => s.userId);
-
-  // Step 2: Bulk-load users who have missed alerts enabled
-  const users = await User.find({
-    _id: { $in: subscribedUserIds },
-    'settings.notifications.missedAlerts.push': { $ne: false },
-  }, 'name email emailVerified settings');
-
-  // Step 3: Filter to users whose local time is the missed alert hour
+  // Step 1: Load users who can actually receive push or email alerts.
+  const users = await notificationService.getScheduledUsers(
+    NOTIFICATION_TYPES.MISSED_ALERT,
+    'name email emailVerified settings'
+  );
+  if (users.length === 0) return;
+  // Step 2: Filter to users whose local time is the missed alert hour
   const eligibleUsers = [];
   for (const user of users) {
     const tz = user.settings?.timezone || 'UTC';
@@ -37,7 +29,7 @@ async function sendMissedAlerts() {
 
   if (eligibleUsers.length === 0) return;
 
-  // Step 4: Group by yesterday date, bulk-load habits and logs
+  // Step 3: Group by yesterday date, bulk-load habits and logs
   const dateGroups = new Map();
   for (const { user, tz } of eligibleUsers) {
     const yesterday = getYesterdayInTimezone(tz);
