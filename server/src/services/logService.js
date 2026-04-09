@@ -15,16 +15,21 @@ import {
   getStartOfYear,
   getEndOfYear,
   getDayOfWeek,
+  toDateString,
 } from '../utils/dateHelpers.js';
 import { MAX_BACKDATE_DAYS, NOTIFICATION_TYPES, STREAK_MILESTONES } from '../config/constants.js';
 import notificationService from './notificationService.js';
 import emailService from './emailService.js';
 
-function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds, activeFilter) {
+function buildVisibleHabitQuery(baseFilter, cutoffDateStr, loggedHabitIds, activeFilter) {
   return {
     ...baseFilter,
-    createdAt: { $lte: cutoffDate },
-    $or: [activeFilter, { _id: { $in: loggedHabitIds } }],
+    // Use createdDate (YYYY-MM-DD local date) when available, fall back to createdAt for older habits
+    $or: [
+      { createdDate: { $lte: cutoffDateStr } },
+      { createdDate: { $exists: false }, createdAt: { $lte: toUTCMidnight(cutoffDateStr) } },
+    ],
+    $and: [{ $or: [activeFilter, { _id: { $in: loggedHabitIds } }] }],
   };
 }
 
@@ -78,7 +83,8 @@ class LogService {
         habitLogs,
         habit.frequency,
         habit.target,
-        habit.createdAt
+        habit.createdAt,
+        habit.createdDate
       );
       streakMap.set(habit._id.toString(), streaks);
     }
@@ -119,8 +125,8 @@ class LogService {
     if (diff > MAX_BACKDATE_DAYS) {
       throw new AppError(`Cannot backdate more than ${MAX_BACKDATE_DAYS} days`, 400);
     }
-    const habitCreatedDate = getUTCDateString(habit.createdAt);
-    if (habitCreatedDate && logDate < toUTCMidnight(habitCreatedDate)) {
+    const habitCreatedDate = habit.createdDate || getUTCDateString(habit.createdAt);
+    if (habitCreatedDate && date < habitCreatedDate) {
       throw new AppError('Cannot log before the habit was created', 400);
     }
 
@@ -155,7 +161,8 @@ class LogService {
       logs,
       habit.frequency,
       habit.target,
-      habit.createdAt
+      habit.createdAt,
+      habit.createdDate
     );
 
     // Only update habit-level streaks for the owner
@@ -170,7 +177,7 @@ class LogService {
 
   async getUserStreakForHabit(userId, habit) {
     const logs = await HabitLog.find({ habitId: habit._id, userId }).sort({ date: 1 });
-    return streakService.calculateStreaks(logs, habit.frequency, habit.target, habit.createdAt);
+    return streakService.calculateStreaks(logs, habit.frequency, habit.target, habit.createdAt, habit.createdDate);
   }
 
   async _sendLogNotifications(userId, habit, value, isNew, streaks) {
@@ -263,7 +270,7 @@ class LogService {
       Habit.find(
         buildVisibleHabitQuery(
           { userId },
-          date,
+          dateString,
           loggedHabitIds,
           { isArchived: false, frequency: { $in: [dayOfWeek] } }
         )
@@ -272,7 +279,7 @@ class LogService {
         ? Habit.find(
             buildVisibleHabitQuery(
               { _id: { $in: sharedHabitIds } },
-              date,
+              dateString,
               loggedHabitIds,
               { isArchived: false, frequency: { $in: [dayOfWeek] } }
             )
@@ -367,7 +374,7 @@ class LogService {
 
     // Own habits
     const ownHabits = await Habit.find(
-      buildVisibleHabitQuery({ userId }, end, loggedHabitIds, { isArchived: false })
+      buildVisibleHabitQuery({ userId }, endDate, loggedHabitIds, { isArchived: false })
     ).sort({ sortOrder: 1, createdAt: -1 });
 
     // Shared habits
@@ -378,7 +385,7 @@ class LogService {
       sharedHabits = await Habit.find(
         buildVisibleHabitQuery(
           { _id: { $in: sharedHabitIds } },
-          end,
+          endDate,
           loggedHabitIds,
           { isArchived: false }
         )
@@ -433,6 +440,7 @@ class LogService {
   async getMonthlyLogs(userId, month, year) {
     const startDate = getStartOfMonth(year, month);
     const endDate = getEndOfMonth(year, month);
+    const endDateStr = toDateString(endDate);
     const logs = await HabitLog.find({
       userId,
       date: { $gte: startDate, $lte: endDate },
@@ -440,7 +448,7 @@ class LogService {
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     const ownHabits = await Habit.find(
-      buildVisibleHabitQuery({ userId }, endDate, loggedHabitIds, { isArchived: false })
+      buildVisibleHabitQuery({ userId }, endDateStr, loggedHabitIds, { isArchived: false })
     );
 
     // Include shared habits
@@ -451,7 +459,7 @@ class LogService {
       sharedHabits = await Habit.find(
         buildVisibleHabitQuery(
           { _id: { $in: sharedHabitIds } },
-          endDate,
+          endDateStr,
           loggedHabitIds,
           { isArchived: false }
         )
@@ -504,6 +512,7 @@ class LogService {
   async getYearlyLogs(userId, year) {
     const startDate = getStartOfYear(year);
     const endDate = getEndOfYear(year);
+    const endDateStr = toDateString(endDate);
     const logs = await HabitLog.find({
       userId,
       date: { $gte: startDate, $lte: endDate },
@@ -511,7 +520,7 @@ class LogService {
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     const ownHabits = await Habit.find(
-      buildVisibleHabitQuery({ userId }, endDate, loggedHabitIds, { isArchived: false })
+      buildVisibleHabitQuery({ userId }, endDateStr, loggedHabitIds, { isArchived: false })
     );
 
     // Include shared habits
@@ -522,7 +531,7 @@ class LogService {
       sharedHabits = await Habit.find(
         buildVisibleHabitQuery(
           { _id: { $in: sharedHabitIds } },
-          endDate,
+          endDateStr,
           loggedHabitIds,
           { isArchived: false }
         )

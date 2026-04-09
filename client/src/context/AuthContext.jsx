@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { loginUser, registerUser } from '../api/authApi';
+import { updateProfile } from '../api/userApi';
 
 const AuthContext = createContext(null);
 
@@ -22,11 +23,26 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  const syncTimezone = async (userData) => {
+    const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detectedTz && userData.settings?.timezone !== detectedTz) {
+      try {
+        const res = await updateProfile({ settings: { timezone: detectedTz } });
+        const updated = res.data.data.user;
+        localStorage.setItem('user', JSON.stringify(updated));
+        setUser(updated);
+      } catch {
+        // Non-critical — don't block login
+      }
+    }
+  };
+
   const login = async (email, password) => {
     const { data } = await loginUser(email, password);
     localStorage.setItem('token', data.data.token);
     localStorage.setItem('user', JSON.stringify(data.data.user));
     setUser(data.data.user);
+    syncTimezone(data.data.user);
   };
 
   const register = async (name, email, password) => {
@@ -34,6 +50,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', data.data.token);
     localStorage.setItem('user', JSON.stringify(data.data.user));
     setUser(data.data.user);
+    syncTimezone(data.data.user);
   };
 
   const updateUser = (updatedUser) => {

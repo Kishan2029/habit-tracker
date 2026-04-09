@@ -1,4 +1,6 @@
-export function getHabitCreatedDateString(createdAt) {
+export function getHabitCreatedDateString(createdAt, createdDate) {
+  // Prefer createdDate (local YYYY-MM-DD) over createdAt (UTC timestamp)
+  if (createdDate) return createdDate;
   if (!createdAt) return null;
 
   if (typeof createdAt === 'string') {
@@ -8,7 +10,7 @@ export function getHabitCreatedDateString(createdAt) {
   return new Date(createdAt).toISOString().slice(0, 10);
 }
 
-export function wasHabitCreatedOnOrBefore(createdAt, dateStr) {
-  const createdDate = getHabitCreatedDateString(createdAt);
-  return !createdDate || dateStr >= createdDate;
+export function wasHabitCreatedOnOrBefore(createdAt, dateStr, createdDate) {
+  const created = getHabitCreatedDateString(createdAt, createdDate);
+  return !created || dateStr >= created;
 }

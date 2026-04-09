@@ -45,7 +45,7 @@ export default function HabitList() {
   const handleCreate = async (formData) => {
     setSaving(true);
     try {
-      await createHabit(formData);
+      await createHabit({ ...formData, createdDate: new Date().toLocaleDateString('en-CA') });
       toast.success('Habit created!');
       setShowForm(false);
       fetchHabits();

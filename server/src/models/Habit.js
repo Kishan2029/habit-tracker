@@ -67,6 +67,10 @@ const habitSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    createdDate: {
+      type: String,
+      match: /^\d{4}-\d{2}-\d{2}$/,
+    },
   },
   { timestamps: true }
 );

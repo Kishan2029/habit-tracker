@@ -179,7 +179,7 @@ export default function WeeklyView() {
           <tbody>
             {data.habits.map((habit) => {
               const cat = getCategoryConfig(habit.category);
-              const createdDate = getHabitCreatedDateString(habit.createdAt);
+              const createdDate = getHabitCreatedDateString(habit.createdAt, habit.createdDate);
               return (
                 <tr key={habit._id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${habit.isShared ? (habit.myRole === 'owner' ? 'bg-indigo-50/30 dark:bg-indigo-900/5' : 'bg-purple-50/30 dark:bg-purple-900/5') : ''}`}>
                   <td className="py-3 px-4">
@@ -196,7 +196,7 @@ export default function WeeklyView() {
                   </td>
                   {weekDays.map((d) => {
                     const dayOfWeek = parseLocalDate(d).getDay();
-                    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, d);
+                    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, d, habit.createdDate);
                     const isScheduled = existsOnDate && habit.frequency.includes(dayOfWeek);
                     const isFuture = d > today;
                     const log = logMap.get(`${habit._id}-${d}`);

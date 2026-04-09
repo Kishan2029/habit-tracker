@@ -116,7 +116,7 @@ export default function MonthlyGridView() {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const log = logMap.get(`${habit._id}-${dateStr}`);
     const dayOfWeek = parseLocalDate(dateStr).getDay();
-    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, dateStr);
+    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, dateStr, habit.createdDate);
     const isScheduled = existsOnDate && habit.frequency.includes(dayOfWeek);
     const value = log?.value;
     const isCompleted = value
