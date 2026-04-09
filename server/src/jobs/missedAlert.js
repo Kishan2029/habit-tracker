@@ -65,7 +65,7 @@ async function sendMissedAlerts() {
     for (const log of logs) {
       const habit = habits.find((h) => h._id.toString() === log.habitId.toString());
       if (!habit) continue;
-      const isComplete = typeof log.value === 'boolean' ? log.value : log.value >= habit.target;
+      const isComplete = typeof log.value === 'boolean' ? log.value : (habit.target > 0 && log.value >= habit.target);
       if (isComplete) completedSet.add(`${log.userId}:${log.habitId}`);
     }
 

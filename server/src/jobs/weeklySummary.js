@@ -28,8 +28,8 @@ async function sendWeeklySummariesByTimezone() {
       const userToday = getTodayInTimezone(tz);
       if (userToday.getUTCDay() !== 0) continue;
 
-      await weeklySummaryService.sendWeeklySummaryForUser(user);
-      sent++;
+      const result = await weeklySummaryService.sendWeeklySummaryForUser(user);
+      if (result) sent++;
     } catch (err) {
       console.error(`[Weekly Summary] Error for user ${user._id}:`, err.message);
     }

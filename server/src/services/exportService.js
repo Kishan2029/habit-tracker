@@ -21,18 +21,21 @@ function isCompleted(log, habit) {
   return typeof log.value === 'boolean' ? log.value : log.value >= habit.target;
 }
 
-// Uses $and to avoid colliding with the top-level $or for createdDate/createdAt.
-// baseFilter must not contain its own $or or $and keys.
+// Uses $and to combine the createdDate/createdAt filter with the active-or-logged filter,
+// so neither collides with any $or/$and the caller may have in baseFilter.
 function buildVisibleHabitQuery(baseFilter, cutoffDateStr, loggedHabitIds, activeFilter) {
   const nextDayMidnight = new Date(toUTCMidnight(cutoffDateStr).getTime() + 86400000);
-  return {
-    ...baseFilter,
-    $or: [
+  const { $or: baseOr, $and: baseAnd, ...rest } = baseFilter;
+  const conditions = [
+    { $or: [
       { createdDate: { $lte: cutoffDateStr } },
       { createdDate: { $exists: false }, createdAt: { $lt: nextDayMidnight } },
-    ],
-    $and: [{ $or: [activeFilter, { _id: { $in: loggedHabitIds } }] }],
-  };
+    ] },
+    { $or: [activeFilter, { _id: { $in: loggedHabitIds } }] },
+  ];
+  if (baseOr) conditions.push({ $or: baseOr });
+  if (baseAnd) conditions.push(...baseAnd);
+  return { ...rest, $and: conditions };
 }
 
 function getUTCDateString(createdAt) {
