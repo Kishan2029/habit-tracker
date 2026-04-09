@@ -9,6 +9,8 @@ import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import Button from '../ui/Button';
 
+const EMPTY_STATS = { habitStats: [], topHabits: [], totalLogs: 0, completedLogs: 0, overallRate: 0, bestStreak: 0, bestStreakHabit: null };
+
 export default function YearlyAnalytics() {
   const { user } = useAuth();
   const currentYear = new Date().getFullYear();
@@ -41,7 +43,7 @@ export default function YearlyAnalytics() {
   // Must be called before early returns to maintain consistent hook ordering
   const { habitStats, topHabits, totalLogs, completedLogs, overallRate, bestStreak, bestStreakHabit } = useMemo(() => {
     if (!data || data.habits.length === 0) {
-      return { habitStats: [], topHabits: [], totalLogs: 0, completedLogs: 0, overallRate: 0, bestStreak: 0, bestStreakHabit: null };
+      return EMPTY_STATS;
     }
 
     // Build a Map for O(1) habit lookups
