@@ -21,13 +21,17 @@ import { MAX_BACKDATE_DAYS, NOTIFICATION_TYPES, STREAK_MILESTONES } from '../con
 import notificationService from './notificationService.js';
 import emailService from './emailService.js';
 
+// Uses $and to avoid colliding with the top-level $or for createdDate/createdAt.
+// baseFilter must not contain its own $or or $and keys.
 function buildVisibleHabitQuery(baseFilter, cutoffDateStr, loggedHabitIds, activeFilter) {
+  // For the legacy createdAt fallback, use $lt next-day-midnight so habits created
+  // anytime on the cutoff day are included (createdAt can be e.g. 22:00 UTC).
+  const nextDayMidnight = new Date(toUTCMidnight(cutoffDateStr).getTime() + 86400000);
   return {
     ...baseFilter,
-    // Use createdDate (YYYY-MM-DD local date) when available, fall back to createdAt for older habits
     $or: [
       { createdDate: { $lte: cutoffDateStr } },
-      { createdDate: { $exists: false }, createdAt: { $lte: toUTCMidnight(cutoffDateStr) } },
+      { createdDate: { $exists: false }, createdAt: { $lt: nextDayMidnight } },
     ],
     $and: [{ $or: [activeFilter, { _id: { $in: loggedHabitIds } }] }],
   };

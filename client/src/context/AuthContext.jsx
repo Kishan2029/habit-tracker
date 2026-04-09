@@ -23,34 +23,35 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const syncTimezone = async (userData) => {
+  // Patch the user object with the browser's timezone and persist to server.
+  // Returns the (possibly updated) user so callers only call setUser once.
+  const applyTimezone = (userData) => {
     const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (detectedTz && userData.settings?.timezone !== detectedTz) {
-      try {
-        const res = await updateProfile({ settings: { timezone: detectedTz } });
-        const updated = res.data.data.user;
-        localStorage.setItem('user', JSON.stringify(updated));
-        setUser(updated);
-      } catch {
-        // Non-critical — don't block login
-      }
-    }
+    if (!detectedTz || userData.settings?.timezone === detectedTz) return userData;
+
+    const patched = {
+      ...userData,
+      settings: { ...userData.settings, timezone: detectedTz },
+    };
+    // Fire-and-forget server save — non-critical, don't block login
+    updateProfile({ settings: { timezone: detectedTz } }).catch(() => {});
+    return patched;
   };
 
   const login = async (email, password) => {
     const { data } = await loginUser(email, password);
+    const userData = applyTimezone(data.data.user);
     localStorage.setItem('token', data.data.token);
-    localStorage.setItem('user', JSON.stringify(data.data.user));
-    setUser(data.data.user);
-    syncTimezone(data.data.user);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
   };
 
   const register = async (name, email, password) => {
     const { data } = await registerUser(name, email, password);
+    const userData = applyTimezone(data.data.user);
     localStorage.setItem('token', data.data.token);
-    localStorage.setItem('user', JSON.stringify(data.data.user));
-    setUser(data.data.user);
-    syncTimezone(data.data.user);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
   };
 
   const updateUser = (updatedUser) => {
