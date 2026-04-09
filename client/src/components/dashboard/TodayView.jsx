@@ -13,11 +13,11 @@ import SharedBadge from '../ui/SharedBadge';
 import MemberProgressList from '../shared/MemberProgressList';
 import ShareHabitModal from '../habits/ShareHabitModal';
 import { useNavigate } from 'react-router-dom';
-import { getLocalDateString } from '../../utils/dateUtils';
+import { useToday } from '../../utils/useToday';
 import toast from 'react-hot-toast';
 
 export default function TodayView() {
-  const today = getLocalDateString();
+  const today = useToday();
   const [date, setDate] = useState(today);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -77,18 +77,22 @@ export default function TodayView() {
   }, [data]);
 
   const handleLog = async (habitId, value, event) => {
+    // Capture snapshot for rollback before the optimistic update
     const prevData = data;
 
-    // Optimistic update — reflect change instantly
-    const newHabits = data.habits.map((entry) => {
-      if (entry.habit._id !== habitId) return entry;
-      const newLog = { ...(entry.log || {}), value };
-      const newIsCompleted =
-        entry.habit.type === 'boolean' ? !!value : value >= entry.habit.target;
-      return { ...entry, log: newLog, isCompleted: newIsCompleted };
+    // Optimistic update — use functional form to avoid stale closure
+    setData((prev) => {
+      if (!prev) return prev;
+      const newHabits = prev.habits.map((entry) => {
+        if (entry.habit._id !== habitId) return entry;
+        const newLog = { ...(entry.log || {}), value };
+        const newIsCompleted =
+          entry.habit.type === 'boolean' ? !!value : value >= entry.habit.target;
+        return { ...entry, log: newLog, isCompleted: newIsCompleted };
+      });
+      const newCompleted = newHabits.filter((h) => h.isCompleted).length;
+      return { ...prev, habits: newHabits, completed: newCompleted };
     });
-    const newCompleted = newHabits.filter((h) => h.isCompleted).length;
-    setData({ ...data, habits: newHabits, completed: newCompleted });
 
     userLoggedRef.current = true;
     if (event && value === true) {

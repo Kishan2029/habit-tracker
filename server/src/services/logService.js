@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import HabitLog from '../models/HabitLog.js';
 import Habit from '../models/Habit.js';
 import User from '../models/User.js';
@@ -54,6 +53,11 @@ class LogService {
     return [...new Set(logs.map((log) => log.habitId.toString()))];
   }
 
+  async _getUserTimezone(userId) {
+    const user = await User.findById(userId, 'settings');
+    return user?.settings?.timezone || null;
+  }
+
   _serializeHabit(habit, streakOverride = null) {
     const habitData = typeof habit.toObject === 'function' ? habit.toObject() : { ...habit };
 
@@ -65,7 +69,7 @@ class LogService {
     return habitData;
   }
 
-  async _buildSharedStreakMap(userId, sharedHabits) {
+  async _buildSharedStreakMap(userId, sharedHabits, timezone) {
     if (sharedHabits.length === 0) return new Map();
 
     const habitIds = sharedHabits.map((habit) => habit._id);
@@ -91,7 +95,8 @@ class LogService {
         habit.frequency,
         habit.target,
         habit.createdAt,
-        habit.createdDate
+        habit.createdDate,
+        timezone
       );
       streakMap.set(habit._id.toString(), streaks);
     }
@@ -149,7 +154,8 @@ class LogService {
     // Don't let streak calculation errors fail the whole request
     let streaks = null;
     try {
-      streaks = await this.updateStreaks(habit, userId);
+      const timezone = await this._getUserTimezone(userId);
+      streaks = await this.updateStreaks(habit, userId, timezone);
     } catch (err) {
       console.error('Streak update failed:', err.message);
     }
@@ -160,7 +166,7 @@ class LogService {
     return { log: logDoc, isNew };
   }
 
-  async updateStreaks(habit, userId) {
+  async updateStreaks(habit, userId, timezone) {
     // For shared habits, calculate streaks per-user
     const query = userId ? { habitId: habit._id, userId } : { habitId: habit._id };
     const logs = await HabitLog.find(query).sort({ date: 1 });
@@ -169,7 +175,8 @@ class LogService {
       habit.frequency,
       habit.target,
       habit.createdAt,
-      habit.createdDate
+      habit.createdDate,
+      timezone
     );
 
     // Only update habit-level streaks for the owner
@@ -182,9 +189,9 @@ class LogService {
     return { currentStreak, longestStreak };
   }
 
-  async getUserStreakForHabit(userId, habit) {
+  async getUserStreakForHabit(userId, habit, timezone) {
     const logs = await HabitLog.find({ habitId: habit._id, userId }).sort({ date: 1 });
-    return streakService.calculateStreaks(logs, habit.frequency, habit.target, habit.createdAt, habit.createdDate);
+    return streakService.calculateStreaks(logs, habit.frequency, habit.target, habit.createdAt, habit.createdDate, timezone);
   }
 
   async _sendLogNotifications(userId, habit, value, isNew, streaks) {
@@ -262,10 +269,11 @@ class LogService {
     const date = toUTCMidnight(dateString);
     const dayOfWeek = getDayOfWeek(date);
 
-    // Phase 1: Parallel — fetch logs, own habits, and shared entries simultaneously
-    const [logs, sharedEntries] = await Promise.all([
+    // Phase 1: Parallel — fetch logs, own habits, shared entries, and user timezone
+    const [logs, sharedEntries, timezone] = await Promise.all([
       HabitLog.find({ userId, date }),
       sharedHabitService.getSharedHabitIdsForUser(userId),
+      this._getUserTimezone(userId),
     ]);
 
     const loggedHabitIds = this._getLoggedHabitIds(logs);
@@ -300,7 +308,7 @@ class LogService {
     // Phase 3: Parallel — streaks and own shared docs (both depend on Phase 2 results)
     const ownHabitIds = ownHabits.map((h) => h._id);
     const [sharedStreakMap, ownSharedDocs] = await Promise.all([
-      this._buildSharedStreakMap(userId, sharedHabits),
+      this._buildSharedStreakMap(userId, sharedHabits, timezone),
       SharedHabit.find({
         habitId: { $in: ownHabitIds },
         ownerId: userId,
@@ -373,10 +381,10 @@ class LogService {
       throw new AppError('Start date must be before or equal to end date', 400);
     }
 
-    const logs = await HabitLog.find({
-      userId,
-      date: { $gte: start, $lte: end },
-    });
+    const [logs, timezone] = await Promise.all([
+      HabitLog.find({ userId, date: { $gte: start, $lte: end } }),
+      this._getUserTimezone(userId),
+    ]);
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     // Own habits
@@ -409,7 +417,7 @@ class LogService {
       sharedEntries.map((e) => [e.habitId.toString(), { role: e.role, ownerId: e.ownerId.toString() }])
     );
 
-    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits, timezone);
 
     // Find which of the owner's own habits are shared
     const ownHabitIds = ownHabits.map((h) => h._id);
@@ -448,10 +456,10 @@ class LogService {
     const startDate = getStartOfMonth(year, month);
     const endDate = getEndOfMonth(year, month);
     const endDateStr = toDateString(endDate);
-    const logs = await HabitLog.find({
-      userId,
-      date: { $gte: startDate, $lte: endDate },
-    });
+    const [logs, timezone] = await Promise.all([
+      HabitLog.find({ userId, date: { $gte: startDate, $lte: endDate } }),
+      this._getUserTimezone(userId),
+    ]);
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     const ownHabits = await Habit.find(
@@ -492,7 +500,7 @@ class LogService {
     }).select('habitId');
     const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
 
-    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits, timezone);
     const habits = [
       ...ownHabits.map((habit) => {
         const h = this._serializeHabit(habit);
@@ -520,10 +528,10 @@ class LogService {
     const startDate = getStartOfYear(year);
     const endDate = getEndOfYear(year);
     const endDateStr = toDateString(endDate);
-    const logs = await HabitLog.find({
-      userId,
-      date: { $gte: startDate, $lte: endDate },
-    });
+    const [logs, timezone] = await Promise.all([
+      HabitLog.find({ userId, date: { $gte: startDate, $lte: endDate } }),
+      this._getUserTimezone(userId),
+    ]);
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     const ownHabits = await Habit.find(
@@ -564,7 +572,7 @@ class LogService {
     }).select('habitId');
     const ownSharedSet = new Set(ownSharedDocs.map((s) => s.habitId.toString()));
 
-    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits);
+    const sharedStreakMap = await this._buildSharedStreakMap(userId, sharedHabits, timezone);
     const habits = [
       ...ownHabits.map((habit) => {
         const h = this._serializeHabit(habit);
@@ -584,38 +592,34 @@ class LogService {
         return h;
       }),
     ];
+    const habitMap = new Map(habits.map((h) => [h._id.toString(), h]));
     const allHabitIds = habits.map((h) => h._id);
-
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    const monthlyStats = await HabitLog.aggregate([
-      {
-        $match: {
-          userId: userObjectId,
-          habitId: { $in: allHabitIds },
-          date: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: { month: { $month: '$date' } },
-          totalLogs: { $sum: 1 },
-          completedLogs: {
-            $sum: {
-              $cond: [
-                { $eq: ['$value', true] },
-                1,
-                { $cond: [{ $gte: ['$value', 1] }, 1, 0] },
-              ],
-            },
-          },
-        },
-      },
-      { $sort: { '_id.month': 1 } },
-    ]);
 
     const habitIdSet = new Set(allHabitIds.map((habitId) => habitId.toString()));
     const filteredLogs = logs.filter((log) => habitIdSet.has(log.habitId.toString()));
+
+    // Compute monthlyStats in JS so we can compare each log against
+    // its habit's actual target (the old aggregation used a hardcoded >= 1).
+    const monthBuckets = new Map();
+    for (const log of filteredLogs) {
+      const logDate = log.date instanceof Date ? log.date : new Date(log.date);
+      const month = logDate.getUTCMonth() + 1;
+      if (!monthBuckets.has(month)) {
+        monthBuckets.set(month, { totalLogs: 0, completedLogs: 0 });
+      }
+      const bucket = monthBuckets.get(month);
+      bucket.totalLogs++;
+      const habit = habitMap.get(log.habitId.toString());
+      if (habit) {
+        const done = typeof log.value === 'boolean'
+          ? log.value === true
+          : log.value >= habit.target;
+        if (done) bucket.completedLogs++;
+      }
+    }
+    const monthlyStats = [...monthBuckets.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([month, stats]) => ({ _id: { month }, ...stats }));
 
     return { year, habits, monthlyStats, logs: filteredLogs };
   }

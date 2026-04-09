@@ -60,10 +60,11 @@ async function sendMissedAlerts() {
       habitId: { $in: habitIds },
     });
 
-    // Index completed logs by `userId:habitId`
+    // Index completed logs by `userId:habitId` (use Map for O(1) habit lookup)
+    const habitMap = new Map(habits.map((h) => [h._id.toString(), h]));
     const completedSet = new Set();
     for (const log of logs) {
-      const habit = habits.find((h) => h._id.toString() === log.habitId.toString());
+      const habit = habitMap.get(log.habitId.toString());
       if (!habit) continue;
       const isComplete = typeof log.value === 'boolean' ? log.value : (habit.target > 0 && log.value >= habit.target);
       if (isComplete) completedSet.add(`${log.userId}:${log.habitId}`);

@@ -307,6 +307,7 @@ class SharedHabitService {
     await shared.save();
 
     cache.delByPrefix(`habits:${userId}`);
+    cache.delByPrefix(`habits:${this._toId(shared.ownerId)}`);
     return { message: 'Left shared habit' };
   }
 
