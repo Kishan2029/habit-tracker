@@ -6,7 +6,7 @@ import {
 } from "../utils/dateHelpers.js";
 
 class StreakService {
-  calculateStreaks(logs, frequency, target, habitCreatedAt) {
+  calculateStreaks(logs, frequency, target, habitCreatedAt, createdDate) {
     const completedSet = new Set();
 
     for (const log of logs) {
@@ -20,7 +20,10 @@ class StreakService {
     }
 
     const today = getTodayUTC();
-    const creationDate = new Date(habitCreatedAt);
+    // Prefer createdDate (local YYYY-MM-DD) over createdAt (UTC timestamp)
+    const creationDate = createdDate
+      ? new Date(`${createdDate}T00:00:00.000Z`)
+      : new Date(habitCreatedAt);
     creationDate.setUTCHours(0, 0, 0, 0);
 
     // Use the earliest log date if it's before creation (handles backdated logs)

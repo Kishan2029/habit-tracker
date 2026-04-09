@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getHabits, createHabit, updateHabit, archiveHabit, unarchiveHabit, deleteHabit, reorderHabits } from '../../api/habitApi';
+import { getLocalDateString } from '../../utils/dateUtils';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import SortableHabitCard from './SortableHabitCard';
@@ -45,7 +46,7 @@ export default function HabitList() {
   const handleCreate = async (formData) => {
     setSaving(true);
     try {
-      await createHabit(formData);
+      await createHabit({ ...formData, createdDate: getLocalDateString() });
       toast.success('Habit created!');
       setShowForm(false);
       fetchHabits();

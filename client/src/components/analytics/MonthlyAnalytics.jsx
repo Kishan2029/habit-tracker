@@ -87,7 +87,7 @@ export default function MonthlyAnalytics() {
     let completionSum = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr)) continue;
+      if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr, habit.createdDate)) continue;
       const dow = new Date(year, month - 1, d).getDay();
       if (!habit.frequency.includes(dow)) continue;
       scheduled++;

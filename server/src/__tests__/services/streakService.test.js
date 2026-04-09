@@ -125,5 +125,44 @@ describe('StreakService', () => {
       expect(result.currentStreak).toBe(0);
       expect(result.longestStreak).toBe(0);
     });
+
+    it('should use createdDate string over createdAt when both provided', () => {
+      // createdAt is UTC April 10 2AM (which is April 9 local in EST)
+      // createdDate is the correct local date: April 9
+      const createdAt = addDays(today, -3);
+      const createdDate = toDateString(addDays(today, -5)); // 2 days earlier
+
+      const dates = [];
+      for (let i = 4; i >= 0; i--) {
+        dates.push(toDateString(addDays(today, -i)));
+      }
+      const logs = makeLogs(dates);
+
+      const withCreatedDate = streakService.calculateStreaks(logs, allDays, 1, createdAt, createdDate);
+      const withoutCreatedDate = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+
+      // With createdDate (5 days ago), streak should count from day -4
+      expect(withCreatedDate.currentStreak).toBe(5);
+      // Without createdDate, createdAt is 3 days ago, but logs start from day -4
+      // which is before createdAt — the earliest log fallback kicks in
+      expect(withoutCreatedDate.currentStreak).toBe(5);
+    });
+
+    it('should produce same result for createdDate matching createdAt at noon UTC', () => {
+      const createdAt = new Date(`${toDateString(addDays(today, -5))}T12:00:00.000Z`);
+      const createdDate = toDateString(addDays(today, -5));
+
+      const dates = [];
+      for (let i = 4; i >= 0; i--) {
+        dates.push(toDateString(addDays(today, -i)));
+      }
+      const logs = makeLogs(dates);
+
+      const a = streakService.calculateStreaks(logs, allDays, 1, createdAt, createdDate);
+      const b = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+
+      expect(a.currentStreak).toBe(b.currentStreak);
+      expect(a.longestStreak).toBe(b.longestStreak);
+    });
   });
 });
