@@ -37,20 +37,13 @@ export default function YearlyAnalytics() {
     fetchData();
   }, [year]);
 
-  if (loading) return <LoadingSpinner />;
-
-  if (!data || data.habits.length === 0) {
-    return (
-      <EmptyState
-        icon="📊"
-        title="No yearly data"
-        description="Create some habits and start tracking to see yearly analytics."
-      />
-    );
-  }
-
   // Compute stats (memoized to avoid recalculating on every render)
+  // Must be called before early returns to maintain consistent hook ordering
   const { habitStats, topHabits, totalLogs, completedLogs, overallRate, bestStreak, bestStreakHabit } = useMemo(() => {
+    if (!data || data.habits.length === 0) {
+      return { habitStats: [], topHabits: [], totalLogs: 0, completedLogs: 0, overallRate: 0, bestStreak: 0, bestStreakHabit: null };
+    }
+
     // Build a Map for O(1) habit lookups
     const habitMap = new Map(data.habits.map((h) => [h._id, h]));
 
@@ -89,6 +82,18 @@ export default function YearlyAnalytics() {
 
     return { habitStats: stats, topHabits: top, totalLogs: total, completedLogs: done, overallRate: rate, bestStreak: best, bestStreakHabit: bestHabit };
   }, [data]);
+
+  if (loading) return <LoadingSpinner />;
+
+  if (!data || data.habits.length === 0) {
+    return (
+      <EmptyState
+        icon="📊"
+        title="No yearly data"
+        description="Create some habits and start tracking to see yearly analytics."
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
