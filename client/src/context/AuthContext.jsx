@@ -40,16 +40,16 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const { data } = await loginUser(email, password);
-    const userData = applyTimezone(data.data.user);
     localStorage.setItem('token', data.data.token);
+    const userData = applyTimezone(data.data.user);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
 
   const register = async (name, email, password) => {
     const { data } = await registerUser(name, email, password);
-    const userData = applyTimezone(data.data.user);
     localStorage.setItem('token', data.data.token);
+    const userData = applyTimezone(data.data.user);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };

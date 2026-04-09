@@ -21,20 +21,23 @@ import { MAX_BACKDATE_DAYS, NOTIFICATION_TYPES, STREAK_MILESTONES } from '../con
 import notificationService from './notificationService.js';
 import emailService from './emailService.js';
 
-// Uses $and to avoid colliding with the top-level $or for createdDate/createdAt.
-// baseFilter must not contain its own $or or $and keys.
+// Uses $and to combine the createdDate/createdAt filter with the active-or-logged filter,
+// so neither collides with any $or/$and the caller may have in baseFilter.
 function buildVisibleHabitQuery(baseFilter, cutoffDateStr, loggedHabitIds, activeFilter) {
   // For the legacy createdAt fallback, use $lt next-day-midnight so habits created
   // anytime on the cutoff day are included (createdAt can be e.g. 22:00 UTC).
   const nextDayMidnight = new Date(toUTCMidnight(cutoffDateStr).getTime() + 86400000);
-  return {
-    ...baseFilter,
-    $or: [
+  const { $or: baseOr, $and: baseAnd, ...rest } = baseFilter;
+  const conditions = [
+    { $or: [
       { createdDate: { $lte: cutoffDateStr } },
       { createdDate: { $exists: false }, createdAt: { $lt: nextDayMidnight } },
-    ],
-    $and: [{ $or: [activeFilter, { _id: { $in: loggedHabitIds } }] }],
-  };
+    ] },
+    { $or: [activeFilter, { _id: { $in: loggedHabitIds } }] },
+  ];
+  if (baseOr) conditions.push({ $or: baseOr });
+  if (baseAnd) conditions.push(...baseAnd);
+  return { ...rest, $and: conditions };
 }
 
 function getUTCDateString(value) {
@@ -202,8 +205,8 @@ class LogService {
       }).catch(() => {});
     }
 
-    // 2. Goal completion notification (only on transition: new log or value just reached target)
-    if (isCompleted && isNew) {
+    // 2. Goal completion notification (only for count-type habits on first completion)
+    if (isCompleted && isNew && habit.type === 'count') {
       const bodyText = habit.type === 'count' && habit.unit
         ? `You completed "${habit.name}" today \u2014 ${value} ${habit.unit} done!`
         : `You completed "${habit.name}" today!`;
