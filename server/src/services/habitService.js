@@ -71,7 +71,7 @@ class HabitService {
   }
 
   async create(userId, data) {
-    const allowedCreateFields = ['name', 'type', 'unit', 'target', 'color', 'icon', 'frequency', 'category'];
+    const allowedCreateFields = ['name', 'type', 'unit', 'target', 'color', 'icon', 'frequency', 'category', 'createdDate'];
     const filtered = {};
     for (const field of allowedCreateFields) {
       if (data[field] !== undefined) {

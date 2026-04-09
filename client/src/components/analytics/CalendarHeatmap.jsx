@@ -36,11 +36,11 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
       ? habits.filter(
           (h) =>
             h._id === selectedHabitId &&
-            wasHabitCreatedOnOrBefore(h.createdAt, dateStr) &&
+            wasHabitCreatedOnOrBefore(h.createdAt, dateStr, h.createdDate) &&
             h.frequency.includes(dayOfWeek)
         )
       : habits.filter(
-          (h) => wasHabitCreatedOnOrBefore(h.createdAt, dateStr) && h.frequency.includes(dayOfWeek)
+          (h) => wasHabitCreatedOnOrBefore(h.createdAt, dateStr, h.createdDate) && h.frequency.includes(dayOfWeek)
         );
 
     // Proportional completion: count habits give partial credit (e.g. 8/10 = 0.8)

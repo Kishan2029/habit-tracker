@@ -23,17 +23,30 @@ class PushService {
   }
 
   async sendNotification(userId, payload) {
-    if (!this.isConfigured) return;
+    if (!this.isConfigured) {
+      console.warn('[Push] VAPID keys not configured — skipping notification');
+      return { sent: false, reason: 'not_configured' };
+    }
 
     const sub = await PushSubscription.findOne({ userId });
-    if (!sub) return;
+    if (!sub) {
+      console.warn(`[Push] No subscription found for user ${userId}`);
+      return { sent: false, reason: 'no_subscription' };
+    }
+
+    console.log(`[Push] Sending to user ${userId}, endpoint: ${sub.subscription.endpoint.substring(0, 60)}...`);
 
     try {
-      await webPush.sendNotification(sub.subscription, JSON.stringify(payload));
+      const result = await webPush.sendNotification(sub.subscription, JSON.stringify(payload));
+      console.log(`[Push] Success — FCM status: ${result.statusCode}`);
+      return { sent: true, statusCode: result.statusCode };
     } catch (err) {
+      console.error(`[Push] Failed — status: ${err.statusCode}, body: ${err.body || err.message}`);
       if (err.statusCode === 410 || err.statusCode === 404) {
         await PushSubscription.findOneAndDelete({ userId });
+        console.warn(`[Push] Subscription expired/invalid — removed from DB`);
       }
+      return { sent: false, reason: 'send_failed', statusCode: err.statusCode, error: err.body || err.message };
     }
   }
 

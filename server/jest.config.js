@@ -1,6 +1,7 @@
 export default {
   testEnvironment: 'node',
   transform: {},
+  setupFiles: ['<rootDir>/src/__tests__/setupEnv.js'],
   testMatch: ['**/__tests__/**/*.test.js'],
   moduleFileExtensions: ['js', 'json'],
   collectCoverageFrom: [
