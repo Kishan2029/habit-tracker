@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getYearlyLogs } from '../../api/logApi';
+import { useAuth } from '../../context/AuthContext';
 import CompletionChart from './CompletionChart';
 import YearlyHeatmap from './YearlyHeatmap';
 import HabitSelector from './HabitSelector';
@@ -8,8 +9,13 @@ import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import Button from '../ui/Button';
 
+const EMPTY_STATS = { habitStats: [], topHabits: [], totalLogs: 0, completedLogs: 0, overallRate: 0, bestStreak: 0, bestStreakHabit: null };
+
 export default function YearlyAnalytics() {
-  const [year, setYear] = useState(new Date().getFullYear());
+  const { user } = useAuth();
+  const currentYear = new Date().getFullYear();
+  const minYear = user?.createdAt ? new Date(user.createdAt).getFullYear() : null;
+  const [year, setYear] = useState(currentYear);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
@@ -33,20 +39,13 @@ export default function YearlyAnalytics() {
     fetchData();
   }, [year]);
 
-  if (loading) return <LoadingSpinner />;
-
-  if (!data || data.habits.length === 0) {
-    return (
-      <EmptyState
-        icon="📊"
-        title="No yearly data"
-        description="Create some habits and start tracking to see yearly analytics."
-      />
-    );
-  }
-
   // Compute stats (memoized to avoid recalculating on every render)
+  // Must be called before early returns to maintain consistent hook ordering
   const { habitStats, topHabits, totalLogs, completedLogs, overallRate, bestStreak, bestStreakHabit } = useMemo(() => {
+    if (!data || data.habits.length === 0) {
+      return EMPTY_STATS;
+    }
+
     // Build a Map for O(1) habit lookups
     const habitMap = new Map(data.habits.map((h) => [h._id, h]));
 
@@ -86,17 +85,29 @@ export default function YearlyAnalytics() {
     return { habitStats: stats, topHabits: top, totalLogs: total, completedLogs: done, overallRate: rate, bestStreak: best, bestStreakHabit: bestHabit };
   }, [data]);
 
+  if (loading) return <LoadingSpinner />;
+
+  if (!data || data.habits.length === 0) {
+    return (
+      <EmptyState
+        icon="📊"
+        title="No yearly data"
+        description="Create some habits and start tracking to see yearly analytics."
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* Year navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => setYear(year - 1)}>
+        <Button variant="ghost" size="sm" onClick={() => setYear(year - 1)} disabled={minYear != null && year <= minYear}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Button>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{year}</h3>
-        <Button variant="ghost" size="sm" onClick={() => setYear(year + 1)}>
+        <Button variant="ghost" size="sm" onClick={() => setYear(year + 1)} disabled={year >= currentYear}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

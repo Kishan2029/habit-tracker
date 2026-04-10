@@ -17,12 +17,17 @@ jest.unstable_mockModule('../../models/HabitLog.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../models/SharedHabit.js', () => ({
-  default: {
-    findOne: jest.fn(),
-    findOneAndDelete: jest.fn(),
-  },
-}));
+jest.unstable_mockModule('../../models/SharedHabit.js', () => {
+  const mockFind = jest.fn();
+  mockFind.mockReturnValue({ select: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }) });
+  return {
+    default: {
+      find: mockFind,
+      findOne: jest.fn(),
+      findOneAndDelete: jest.fn(),
+    },
+  };
+});
 
 jest.unstable_mockModule('../../services/cacheService.js', () => ({
   default: {
@@ -49,6 +54,7 @@ describe('HabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sharedHabitService.getUserRoleForHabit.mockResolvedValue(null);
+    SharedHabit.findOne.mockResolvedValue(null);
   });
 
   describe('_cacheKey', () => {
@@ -75,13 +81,13 @@ describe('HabitService', () => {
 
     it('should query DB and cache when cache miss', async () => {
       cache.get.mockReturnValue(undefined);
-      const habits = [{ name: 'Exercise' }];
+      const habits = [{ _id: 'h1', name: 'Exercise' }];
       Habit.find.mockReturnValue({
         sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(habits) }),
       });
 
       const result = await habitService.getAll('user1');
-      expect(result).toEqual(habits);
+      expect(result).toEqual([{ _id: 'h1', name: 'Exercise', isShared: false }]);
       expect(cache.set).toHaveBeenCalled();
     });
 
@@ -107,6 +113,40 @@ describe('HabitService', () => {
 
       await habitService.getAll('user1', { includeArchived: true });
       expect(Habit.find).toHaveBeenCalledWith({ userId: 'user1' });
+    });
+
+    it('should enrich habits with sharing info when habit IS shared', async () => {
+      cache.get.mockReturnValue(undefined);
+      const habits = [
+        { _id: 'h1', name: 'Exercise' },
+        { _id: 'h2', name: 'Read' },
+      ];
+      Habit.find.mockReturnValue({
+        sort: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue(habits) }),
+      });
+
+      // Mock SharedHabit.find to return a shared doc for h1
+      SharedHabit.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue([
+            {
+              habitId: { toString: () => 'h1' },
+              sharedWith: [
+                { status: 'accepted' },
+                { status: 'accepted' },
+                { status: 'pending' },
+              ],
+            },
+          ]),
+        }),
+      });
+
+      const result = await habitService.getAll('user1');
+
+      expect(result[0].isShared).toBe(true);
+      expect(result[0].memberCount).toBe(2); // only accepted count
+      expect(result[1].isShared).toBe(false);
+      expect(result[1].memberCount).toBeUndefined();
     });
   });
 
@@ -138,6 +178,50 @@ describe('HabitService', () => {
         message: 'Not authorized to access this habit',
         statusCode: 403,
       });
+    });
+
+    it('should allow shared admin to access habit with allowSharedAdmin', async () => {
+      const habit = {
+        _id: 'h1',
+        userId: { toString: () => 'otherUser' },
+      };
+      Habit.findById.mockResolvedValue(habit);
+      sharedHabitService.getUserRoleForHabit.mockResolvedValue('admin');
+
+      const result = await habitService.getById('h1', 'user1', { allowSharedAdmin: true });
+
+      expect(result).toEqual(habit);
+      expect(sharedHabitService.getUserRoleForHabit).toHaveBeenCalledWith('user1', 'h1');
+    });
+
+    it('should throw 403 if allowSharedAdmin but user is not admin', async () => {
+      Habit.findById.mockResolvedValue({
+        _id: 'h1',
+        userId: { toString: () => 'otherUser' },
+      });
+      sharedHabitService.getUserRoleForHabit.mockResolvedValue('member');
+
+      await expect(
+        habitService.getById('h1', 'user1', { allowSharedAdmin: true })
+      ).rejects.toMatchObject({
+        message: 'Not authorized to access this habit',
+        statusCode: 403,
+      });
+    });
+
+    it('should throw 403 if not owner and allowSharedAdmin is false', async () => {
+      Habit.findById.mockResolvedValue({
+        _id: 'h1',
+        userId: { toString: () => 'otherUser' },
+      });
+
+      await expect(
+        habitService.getById('h1', 'user1', { allowSharedAdmin: false })
+      ).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      // Should not even check shared role
+      expect(sharedHabitService.getUserRoleForHabit).not.toHaveBeenCalled();
     });
   });
 
@@ -256,6 +340,7 @@ describe('HabitService', () => {
         userId: { toString: () => 'user1' },
       };
       Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue(null);
       HabitLog.deleteMany.mockResolvedValue({ deletedCount: 5 });
       SharedHabit.findOneAndDelete.mockResolvedValue(true);
       Habit.findByIdAndDelete.mockResolvedValue(true);
@@ -265,6 +350,22 @@ describe('HabitService', () => {
       expect(HabitLog.deleteMany).toHaveBeenCalledWith({ habitId: 'h1' });
       expect(Habit.findByIdAndDelete).toHaveBeenCalledWith('h1');
       expect(result.message).toBe('Habit and associated logs deleted');
+    });
+
+    it('should throw error when habit has an active share', async () => {
+      const habit = {
+        _id: 'h1',
+        userId: { toString: () => 'user1' },
+      };
+      Habit.findById.mockResolvedValue(habit);
+      SharedHabit.findOne.mockResolvedValue({ _id: 'sh1', isActive: true });
+
+      await expect(habitService.delete('h1', 'user1')).rejects.toMatchObject({
+        message: 'Unshare the habit before deleting it',
+        statusCode: 400,
+      });
+
+      expect(Habit.findByIdAndDelete).not.toHaveBeenCalled();
     });
   });
 

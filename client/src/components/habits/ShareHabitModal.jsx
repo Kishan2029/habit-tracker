@@ -12,7 +12,9 @@ import {
   leaveHabit,
 } from '../../api/sharedHabitApi';
 import MemberProgressList from '../shared/MemberProgressList';
-import { getLocalDateString } from '../../utils/dateUtils';
+import Leaderboard from '../shared/Leaderboard';
+import DateNavigator from '../dashboard/DateNavigator';
+import { getLocalDateString, shiftDate } from '../../utils/dateUtils';
 
 const ROLE_DESCRIPTIONS = {
   admin: 'Can invite members, remove members, and log completions',
@@ -29,6 +31,7 @@ export default function ShareHabitModal({ habit, onClose, isOwner: isOwnerProp }
   const [inviteRole, setInviteRole] = useState('member');
   const [inviting, setInviting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [progressDate, setProgressDate] = useState(getLocalDateString());
 
   const clientUrl = window.location.origin;
 
@@ -213,6 +216,9 @@ export default function ShareHabitModal({ habit, onClose, isOwner: isOwnerProp }
               )}
               <button onClick={() => setTab('progress')} className={tabClass('progress')}>
                 Progress
+              </button>
+              <button onClick={() => setTab('leaderboard')} className={tabClass('leaderboard')}>
+                Leaderboard
               </button>
             </div>
 
@@ -463,12 +469,19 @@ export default function ShareHabitModal({ habit, onClose, isOwner: isOwnerProp }
 
             {/* ─── Progress Tab ─────────────────────────────────────────── */}
             {tab === 'progress' && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Today's Progress
-                </h3>
-                <MemberProgressList habitId={habit._id} date={getLocalDateString()} />
+              <div className="space-y-3">
+                <DateNavigator
+                  date={progressDate}
+                  onChange={setProgressDate}
+                  minDate={shiftDate(getLocalDateString(), -30)}
+                />
+                <MemberProgressList habitId={habit._id} date={progressDate} />
               </div>
+            )}
+
+            {/* ─── Leaderboard Tab ────────────────────────────────────────── */}
+            {tab === 'leaderboard' && (
+              <Leaderboard habitId={habit._id} />
             )}
           </div>
         )}

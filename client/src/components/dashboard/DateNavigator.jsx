@@ -1,12 +1,13 @@
 import Button from '../ui/Button';
 import { getLocalDateString, shiftDate } from '../../utils/dateUtils';
 
-export default function DateNavigator({ date, onChange }) {
+export default function DateNavigator({ date, onChange, minDate }) {
   const today = getLocalDateString();
-  const minDateStr = shiftDate(today, -7);
+  const defaultMin = shiftDate(today, -7);
+  const minDateStr = minDate || defaultMin;
 
   const canGoForward = date < today;
-  const canGoBack = date > minDateStr; // allows exactly 7 days back (matches backend MAX_BACKDATE_DAYS)
+  const canGoBack = date > minDateStr;
 
   const shift = (days) => {
     onChange(shiftDate(date, days));
@@ -42,8 +43,15 @@ export default function DateNavigator({ date, onChange }) {
         <p className="text-lg font-semibold text-gray-900 dark:text-white">
           {isToday ? 'Today' : formatDate(date)}
         </p>
-        {isToday && (
+        {isToday ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(date)}</p>
+        ) : (
+          <button
+            onClick={() => onChange(today)}
+            className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium transition"
+          >
+            Jump to Today
+          </button>
         )}
       </div>
 

@@ -21,12 +21,21 @@ function isCompleted(log, habit) {
   return typeof log.value === 'boolean' ? log.value : log.value >= habit.target;
 }
 
-function buildVisibleHabitQuery(baseFilter, cutoffDate, loggedHabitIds, activeFilter) {
-  return {
-    ...baseFilter,
-    createdAt: { $lte: cutoffDate },
-    $or: [activeFilter, { _id: { $in: loggedHabitIds } }],
-  };
+// Uses $and to combine the createdDate/createdAt filter with the active-or-logged filter,
+// so neither collides with any $or/$and the caller may have in baseFilter.
+function buildVisibleHabitQuery(baseFilter, cutoffDateStr, loggedHabitIds, activeFilter) {
+  const nextDayMidnight = new Date(toUTCMidnight(cutoffDateStr).getTime() + 86400000);
+  const { $or: baseOr, $and: baseAnd, ...rest } = baseFilter;
+  const conditions = [
+    { $or: [
+      { createdDate: { $lte: cutoffDateStr } },
+      { createdDate: { $exists: false }, createdAt: { $lt: nextDayMidnight } },
+    ] },
+    { $or: [activeFilter, { _id: { $in: loggedHabitIds } }] },
+  ];
+  if (baseOr) conditions.push({ $or: baseOr });
+  if (baseAnd) conditions.push(...baseAnd);
+  return { ...rest, $and: conditions };
 }
 
 function getUTCDateString(createdAt) {
@@ -39,7 +48,7 @@ function getUTCDateString(createdAt) {
 }
 
 function isHabitActiveOnDate(habit, dateStr) {
-  const createdDate = getUTCDateString(habit.createdAt);
+  const createdDate = habit.createdDate || getUTCDateString(habit.createdAt);
   return !createdDate || dateStr >= createdDate;
 }
 
@@ -54,7 +63,7 @@ class ExportService {
     const loggedHabitIds = [...new Set(logs.map((log) => log.habitId.toString()))];
 
     const ownHabits = await Habit.find(
-      buildVisibleHabitQuery({ userId }, end, loggedHabitIds, { isArchived: false })
+      buildVisibleHabitQuery({ userId }, endDate, loggedHabitIds, { isArchived: false })
     ).sort({ sortOrder: 1 });
 
     const sharedEntries = await sharedHabitService.getSharedHabitIdsForUser(userId);
@@ -65,7 +74,7 @@ class ExportService {
       sharedHabits = await Habit.find(
         buildVisibleHabitQuery(
           { _id: { $in: sharedHabitIds } },
-          end,
+          endDate,
           loggedHabitIds,
           { isArchived: false }
         )

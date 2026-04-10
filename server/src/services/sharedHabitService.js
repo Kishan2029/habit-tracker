@@ -5,6 +5,8 @@ import Habit from '../models/Habit.js';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import emailService from './emailService.js';
+import notificationService from './notificationService.js';
+import { NOTIFICATION_TYPES } from '../config/constants.js';
 import cache from './cacheService.js';
 
 // Permission matrix actions
@@ -188,8 +190,10 @@ class SharedHabitService {
 
     await shared.save();
 
+    const emailSent = emailService.isConfigured;
+
     // Send invite email asynchronously — don't block the response
-    if (emailService.isConfigured) {
+    if (emailSent) {
       Promise.all([
         User.findById(requesterId, 'name'),
         Habit.findById(habitId, 'name'),
@@ -206,7 +210,11 @@ class SharedHabitService {
       });
     }
 
-    return { shared, emailSent: emailService.isConfigured, emailError: emailService.isConfigured ? null : 'Email service not configured (SMTP settings missing)' };
+    return {
+      shared,
+      emailSent,
+      emailError: emailSent ? null : 'Email service not configured',
+    };
   }
 
   // ─── Respond to Invite ──────────────────────────────────────────────
@@ -224,7 +232,29 @@ class SharedHabitService {
     if (accept) member.joinedAt = new Date();
     await shared.save();
 
-    if (accept) cache.delByPrefix(`habits:${userId}`);
+    if (accept) {
+      cache.delByPrefix(`habits:${userId}`);
+
+      // Notify habit owner that invite was accepted (fire-and-forget)
+      Promise.all([
+        User.findById(userId, 'name'),
+        Habit.findById(habitId, 'name'),
+      ])
+        .then(([acceptingUser, habit]) => {
+          if (!acceptingUser || !habit) return;
+          notificationService.send(shared.ownerId, NOTIFICATION_TYPES.SHARED_ACTIVITY, {
+            pushPayload: {
+              title: 'Invite accepted!',
+              body: `${acceptingUser.name} joined your shared habit "${habit.name}"`,
+              icon: '/pwa-192x192.png',
+              tag: `shared-join-${habitId}`,
+              data: { url: '/habits' },
+            },
+            emailFn: null,
+          });
+        })
+        .catch(() => {});
+    }
     return shared;
   }
 
@@ -277,6 +307,7 @@ class SharedHabitService {
     await shared.save();
 
     cache.delByPrefix(`habits:${userId}`);
+    cache.delByPrefix(`habits:${this._toId(shared.ownerId)}`);
     return { message: 'Left shared habit' };
   }
 

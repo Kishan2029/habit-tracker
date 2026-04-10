@@ -151,6 +151,7 @@ Each category comes with a default icon and color:
 - Each template includes a description and difficulty badge (Easy / Medium / Hard)
 - Select a template to pre-fill habit name, type, target, unit, icon, color, and category
 
+
 **Organizing Habits**
 - Drag-and-drop to reorder habits
 - Archive habits to hide them without deleting

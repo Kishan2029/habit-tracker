@@ -62,7 +62,7 @@ export default function YearlyHeatmap({ year, logs, habits, selectedHabitId }) {
       let scheduled = 0;
       let completionSum = 0;
       for (const habit of filteredHabits) {
-        if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr)) continue;
+        if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr, habit.createdDate)) continue;
         if (!habit.frequency.includes(dow)) continue;
         scheduled++;
         const log = logMap.get(`${habit._id}-${dateStr}`);

@@ -126,13 +126,19 @@ router.delete('/unsubscribe', unsubscribe);
 // Dev-only: trigger a test push notification to the logged-in user
 if (env.nodeEnv !== 'production') {
   router.post('/test', catchAsync(async (req, res) => {
-    await pushService.sendNotification(req.user._id, {
+    console.log(`[Push Test] Triggered by user ${req.user._id}`);
+    const result = await pushService.sendNotification(req.user._id, {
       title: '🔔 Habit Tracker',
       body: "Don't forget to log your habits today!",
       url: '/',
       tag: 'test',
     });
-    res.json({ success: true, message: 'Test notification sent' });
+    console.log('[Push Test] Result:', result);
+    res.json({
+      success: result?.sent ?? false,
+      message: result?.sent ? 'Test notification sent' : `Notification not sent: ${result?.reason}`,
+      debug: result,
+    });
   }));
 }
 

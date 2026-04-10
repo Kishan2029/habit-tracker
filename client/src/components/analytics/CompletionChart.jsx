@@ -2,7 +2,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export default function CompletionChart({ monthlyStats }) {
+export default function CompletionChart({ monthlyStats = [] }) {
   const data = MONTH_NAMES.map((month, index) => {
     const stat = monthlyStats.find((s) => s._id.month === index + 1);
     const rate = stat && stat.totalLogs > 0

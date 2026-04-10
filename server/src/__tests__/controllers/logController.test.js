@@ -7,6 +7,8 @@ jest.unstable_mockModule('../../services/logService.js', () => ({
     getMonthlyLogs: jest.fn(),
     getYearlyLogs: jest.fn(),
     getRangeLogs: jest.fn(),
+    getLeaderboard: jest.fn(),
+    getMembersProgress: jest.fn(),
   },
 }));
 
@@ -17,6 +19,8 @@ const {
   getMonthlyLogs,
   getYearlyLogs,
   getRangeLogs,
+  getLeaderboard,
+  getMembersProgress,
 } = await import('../../controllers/logController.js');
 
 const createMockRes = () => {
@@ -75,7 +79,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { date: '2025-01-01' } };
       await getDailyLogs(req, res, next);
 
-      expect(logService.getDailyLogs).toHaveBeenCalledWith('u1', '2025-01-01');
+      expect(logService.getDailyLogs).toHaveBeenCalledWith('u1', '2025-01-01', null);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ data })
       );
@@ -97,7 +101,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { month: '6', year: '2025' } };
       await getMonthlyLogs(req, res, next);
 
-      expect(logService.getMonthlyLogs).toHaveBeenCalledWith('u1', 6, 2025);
+      expect(logService.getMonthlyLogs).toHaveBeenCalledWith('u1', 6, 2025, null);
     });
   });
 
@@ -116,7 +120,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { year: '2025' } };
       await getYearlyLogs(req, res, next);
 
-      expect(logService.getYearlyLogs).toHaveBeenCalledWith('u1', 2025);
+      expect(logService.getYearlyLogs).toHaveBeenCalledWith('u1', 2025, null);
     });
   });
 
@@ -127,7 +131,64 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { start: '2025-01-01', end: '2025-01-31' } };
       await getRangeLogs(req, res, next);
 
-      expect(logService.getRangeLogs).toHaveBeenCalledWith('u1', '2025-01-01', '2025-01-31');
+      expect(logService.getRangeLogs).toHaveBeenCalledWith('u1', '2025-01-01', '2025-01-31', null);
+    });
+  });
+
+  describe('getLeaderboard', () => {
+    it('should return leaderboard with valid range', async () => {
+      const mockData = [{ userId: 'u1', score: 10 }];
+      logService.getLeaderboard.mockResolvedValue(mockData);
+
+      const req = { user: { _id: 'u1', settings: { timezone: 'UTC' } }, params: { habitId: 'h1' }, query: { range: 'week' } };
+      await getLeaderboard(req, res, next);
+
+      expect(logService.getLeaderboard).toHaveBeenCalledWith('u1', 'h1', 'week', 'UTC');
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: 'Leaderboard retrieved', data: mockData })
+      );
+    });
+
+    it('should default range to week when not provided', async () => {
+      logService.getLeaderboard.mockResolvedValue([]);
+
+      const req = { user: { _id: 'u1' }, params: { habitId: 'h1' }, query: {} };
+      await getLeaderboard(req, res, next);
+
+      expect(logService.getLeaderboard).toHaveBeenCalledWith('u1', 'h1', 'week', null);
+    });
+
+    it('should throw error for invalid range', async () => {
+      const req = { user: { _id: 'u1' }, params: { habitId: 'h1' }, query: { range: 'year' } };
+      await getLeaderboard(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
+    });
+  });
+
+  describe('getMembersProgress', () => {
+    it('should return members progress with date', async () => {
+      const mockData = [{ userId: 'u1', completed: true }];
+      logService.getMembersProgress.mockResolvedValue(mockData);
+
+      const req = { user: { _id: 'u1' }, params: { habitId: 'h1' }, query: { date: '2025-01-15' } };
+      await getMembersProgress(req, res, next);
+
+      expect(logService.getMembersProgress).toHaveBeenCalledWith('u1', 'h1', '2025-01-15');
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: 'Members progress retrieved', data: mockData })
+      );
+    });
+
+    it('should throw error when date is not provided', async () => {
+      const req = { user: { _id: 'u1' }, params: { habitId: 'h1' }, query: {} };
+      await getMembersProgress(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
+      );
     });
   });
 });

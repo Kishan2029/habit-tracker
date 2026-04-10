@@ -36,6 +36,24 @@ jest.unstable_mockModule('../../services/cacheService.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: {
+    send: jest.fn().mockResolvedValue(),
+    sendWithUser: jest.fn().mockResolvedValue(),
+  },
+}));
+
+jest.unstable_mockModule('../../config/constants.js', () => ({
+  NOTIFICATION_TYPES: {
+    DAILY_REMINDER: 'dailyReminders',
+    STREAK_MILESTONE: 'streakMilestones',
+    MISSED_ALERT: 'missedAlerts',
+    SHARED_ACTIVITY: 'sharedActivity',
+    GOAL_COMPLETION: 'goalCompletion',
+    WEEKLY_SUMMARY: 'weeklySummary',
+  },
+}));
+
 const { default: SharedHabit } = await import('../../models/SharedHabit.js');
 const { default: Habit } = await import('../../models/Habit.js');
 const { default: User } = await import('../../models/User.js');
@@ -65,6 +83,7 @@ const createMockShared = (overrides = {}) => ({
 describe('SharedHabitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    emailService.isConfigured = true;
   });
 
   // ─── Helper methods ─────────────────────────────────────────────
@@ -403,18 +422,31 @@ describe('SharedHabitService', () => {
       expect(result.emailError).toBeNull();
     });
 
-    it('should handle email failure gracefully', async () => {
+    it('should report provider availability even if async delivery later fails', async () => {
       const shared = createMockShared();
       SharedHabit.findOne.mockResolvedValue(shared);
       User.findOne.mockResolvedValue({ _id: { toString: () => 'u3' }, email: 'c@test.com', name: 'C' });
       User.findById.mockResolvedValue({ name: 'Owner' });
       Habit.findById.mockResolvedValue({ name: 'Exercise' });
-      emailService.sendHabitInviteEmail.mockRejectedValue(new Error('SMTP error'));
+      emailService.sendHabitInviteEmail.mockRejectedValue(new Error('Email delivery failed'));
+
+      const result = await sharedHabitService.inviteMember('owner1', 'h1', 'c@test.com');
+      await Promise.resolve();
+
+      expect(result.emailSent).toBe(true);
+      expect(result.emailError).toBeNull();
+    });
+
+    it('should return generic fallback message when no email provider is configured', async () => {
+      const shared = createMockShared();
+      SharedHabit.findOne.mockResolvedValue(shared);
+      User.findOne.mockResolvedValue({ _id: { toString: () => 'u3' }, email: 'c@test.com', name: 'C' });
+      emailService.isConfigured = false;
 
       const result = await sharedHabitService.inviteMember('owner1', 'h1', 'c@test.com');
 
       expect(result.emailSent).toBe(false);
-      expect(result.emailError).toBe('SMTP error');
+      expect(result.emailError).toBe('Email service not configured');
     });
   });
 
@@ -557,6 +589,21 @@ describe('SharedHabitService', () => {
 
       expect(shared.sharedWith).toHaveLength(0);
       expect(result.message).toBe('Left shared habit');
+    });
+
+    it('should invalidate cache for both the member and the owner', async () => {
+      const shared = createMockShared({
+        sharedWith: [
+          { userId: { _id: 'u2', toString: () => 'u2' }, role: 'member', status: 'accepted' },
+        ],
+      });
+      SharedHabit.findOne.mockResolvedValue(shared);
+
+      await sharedHabitService.leaveSharedHabit('u2', 'h1');
+
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:u2');
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:owner1');
+      expect(cache.delByPrefix).toHaveBeenCalledTimes(2);
     });
   });
 

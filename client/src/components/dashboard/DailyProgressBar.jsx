@@ -1,5 +1,16 @@
+function getMotivationalMessage(percentage, completed, total) {
+  if (total === 0) return '';
+  if (percentage === 0) return "Let's get started! You've got this.";
+  if (percentage < 25) return 'Good start! Keep the momentum going.';
+  if (percentage < 50) return 'Making progress! Stay focused.';
+  if (percentage < 75) return 'Halfway there! You\'re doing great.';
+  if (percentage < 100) return `Almost there! Just ${total - completed} left.`;
+  return 'Perfect day! You crushed it.';
+}
+
 export default function DailyProgressBar({ completed, total }) {
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const message = getMotivationalMessage(percentage, completed, total);
 
   return (
     <div className="space-y-2">
@@ -15,6 +26,11 @@ export default function DailyProgressBar({ completed, total }) {
           style={{ width: `${percentage}%` }}
         />
       </div>
+      {message && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+          {message}
+        </p>
+      )}
     </div>
   );
 }

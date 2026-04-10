@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getLocalDateString } from '../../utils/dateUtils';
 import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -11,12 +12,11 @@ function getColorClass(percentage) {
   return 'bg-green-500 dark:bg-green-500';
 }
 
-export default function CalendarHeatmap({ year, month, logs, habits, selectedHabitId }) {
+export default function CalendarHeatmap({ year, month, logs, habits, selectedHabitId, frozenDates = new Set() }) {
   const [tooltip, setTooltip] = useState(null);
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstDay = new Date(year, month - 1, 1).getDay();
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayStr = getLocalDateString();
 
   // Build a log lookup map: "habitId-YYYY-MM-DD" -> log
   const logMap = new Map();
@@ -36,11 +36,11 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
       ? habits.filter(
           (h) =>
             h._id === selectedHabitId &&
-            wasHabitCreatedOnOrBefore(h.createdAt, dateStr) &&
+            wasHabitCreatedOnOrBefore(h.createdAt, dateStr, h.createdDate) &&
             h.frequency.includes(dayOfWeek)
         )
       : habits.filter(
-          (h) => wasHabitCreatedOnOrBefore(h.createdAt, dateStr) && h.frequency.includes(dayOfWeek)
+          (h) => wasHabitCreatedOnOrBefore(h.createdAt, dateStr, h.createdDate) && h.frequency.includes(dayOfWeek)
         );
 
     // Proportional completion: count habits give partial credit (e.g. 8/10 = 0.8)
@@ -91,6 +91,9 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
         }`}>
           {d}
         </span>
+        {frozenDates.has(dateStr) && (
+          <span className="absolute -top-0.5 -right-0.5 text-[9px]" title="Frozen day">&#10052;</span>
+        )}
       </div>
     );
   }
@@ -120,6 +123,9 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
             {Math.round(dayData[tooltip.d].percentage * 100)}% completed
             {dayData[tooltip.d].total > 0 && ` (${dayData[tooltip.d].total} habit${dayData[tooltip.d].total > 1 ? 's' : ''})`}
           </div>
+          {frozenDates.has(dayData[tooltip.d].dateStr) && (
+            <div className="text-blue-300">&#10052; Streak frozen</div>
+          )}
         </div>
       )}
     </div>

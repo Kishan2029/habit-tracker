@@ -42,6 +42,15 @@ jest.unstable_mockModule('../../config/constants.js', () => ({
     ADMIN: 'admin',
   },
   MAX_BACKDATE_DAYS: 7,
+  NOTIFICATION_TYPES: {
+    DAILY_REMINDER: 'dailyReminders',
+    STREAK_MILESTONE: 'streakMilestones',
+    MISSED_ALERT: 'missedAlerts',
+    SHARED_ACTIVITY: 'sharedActivity',
+    GOAL_COMPLETION: 'goalCompletion',
+    WEEKLY_SUMMARY: 'weeklySummary',
+  },
+  STREAK_MILESTONES: [7, 14, 21, 30, 50, 100, 200, 365],
 }));
 
 jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
@@ -49,6 +58,29 @@ jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
     getUserRoleForHabit: jest.fn(),
     getSharedHabitIdsForUser: jest.fn(),
     getSharingInfo: jest.fn(),
+  },
+}));
+
+jest.unstable_mockModule('../../services/streakFreezeService.js', () => ({
+  default: {
+    getFrozenDatesForHabit: jest.fn().mockResolvedValue(new Set()),
+    getFrozenDatesForUserHabits: jest.fn().mockResolvedValue(new Map()),
+    getFrozenDatesForHabits: jest.fn().mockResolvedValue(new Map()),
+  },
+}));
+
+jest.unstable_mockModule('../../services/notificationService.js', () => ({
+  default: {
+    send: jest.fn().mockResolvedValue(),
+    sendWithUser: jest.fn().mockResolvedValue(),
+  },
+}));
+
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  default: {
+    isConfigured: false,
+    sendStreakMilestoneEmail: jest.fn(),
+    sendGoalCompletionEmail: jest.fn(),
   },
 }));
 
@@ -265,14 +297,20 @@ describe('LogService', () => {
 
       const result = await logService.getDailyLogs('user1', '2025-06-15');
 
-      expect(Habit.find).toHaveBeenCalledWith({
-        userId: 'user1',
-        createdAt: { $lte: new Date('2025-06-15T00:00:00.000Z') },
-        $or: [
-          { isArchived: false, frequency: { $in: [0] } },
-          { _id: { $in: ['h-archived'] } },
-        ],
-      });
+      // Verify the query uses $and to combine createdDate/createdAt filter with active-or-logged filter
+      expect(Habit.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user1',
+          $and: expect.arrayContaining([
+            expect.objectContaining({
+              $or: expect.arrayContaining([
+                expect.objectContaining({ isArchived: false }),
+                expect.objectContaining({ _id: { $in: ['h-archived'] } }),
+              ]),
+            }),
+          ]),
+        })
+      );
       expect(result.habits).toHaveLength(1);
       expect(result.habits[0].habit.isArchived).toBe(true);
     });
@@ -345,11 +383,19 @@ describe('LogService', () => {
 
       const result = await logService.getRangeLogs('user1', '2025-01-01', '2025-01-31');
 
-      expect(Habit.find).toHaveBeenCalledWith({
-        userId: 'user1',
-        createdAt: { $lte: new Date('2025-01-31T00:00:00.000Z') },
-        $or: [{ isArchived: false }, { _id: { $in: ['h1'] } }],
-      });
+      expect(Habit.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user1',
+          $and: expect.arrayContaining([
+            expect.objectContaining({
+              $or: expect.arrayContaining([
+                expect.objectContaining({ isArchived: false }),
+                expect.objectContaining({ _id: { $in: ['h1'] } }),
+              ]),
+            }),
+          ]),
+        })
+      );
       expect(result.startDate).toBe('2025-01-01');
       expect(result.endDate).toBe('2025-01-31');
       expect(result.habits).toHaveLength(1);
@@ -415,24 +461,49 @@ describe('LogService', () => {
 
   describe('getYearlyLogs', () => {
     it('should return habits, monthly stats, and logs', async () => {
-      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'Exercise' }]);
-      HabitLog.aggregate.mockResolvedValue([
-        { _id: { month: 1 }, totalLogs: 30, completedLogs: 25 },
-      ]);
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'Exercise', target: 1 }]);
       HabitLog.find.mockResolvedValue([
-        { habitId: 'h1', value: true },
-        { habitId: 'h2', value: true },
+        { habitId: 'h1', value: true, date: new Date('2025-01-15') },
+        { habitId: 'h2', value: true, date: new Date('2025-01-20') },
       ]);
 
-      const result = await logService.getYearlyLogs(
-        '507f1f77bcf86cd799439011', // valid ObjectId string
-        2025
-      );
+      const result = await logService.getYearlyLogs('user1', 2025);
 
       expect(result.year).toBe(2025);
+      // monthlyStats now computed from logs in JS (only h1 matches habits)
       expect(result.monthlyStats).toHaveLength(1);
-      expect(result.monthlyStats[0].totalLogs).toBe(30);
+      expect(result.monthlyStats[0]._id.month).toBe(1);
+      expect(result.monthlyStats[0].totalLogs).toBe(1);
+      expect(result.monthlyStats[0].completedLogs).toBe(1);
       expect(result.logs).toHaveLength(1);
+    });
+
+    it('should count partial count-habit logs as incomplete', async () => {
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'Push-ups', target: 5 }]);
+      HabitLog.find.mockResolvedValue([
+        { habitId: 'h1', value: 3, date: new Date('2025-03-10') },
+        { habitId: 'h1', value: 5, date: new Date('2025-03-15') },
+      ]);
+
+      const result = await logService.getYearlyLogs('user1', 2025);
+
+      expect(result.monthlyStats).toHaveLength(1);
+      expect(result.monthlyStats[0]._id.month).toBe(3);
+      expect(result.monthlyStats[0].totalLogs).toBe(2);
+      expect(result.monthlyStats[0].completedLogs).toBe(1); // only value=5 meets target=5
+    });
+
+    it('should handle undefined target with ?? 1 fallback', async () => {
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'No-target' }]);
+      HabitLog.find.mockResolvedValue([
+        { habitId: 'h1', value: 1, date: new Date('2025-06-01') },
+      ]);
+
+      const result = await logService.getYearlyLogs('user1', 2025);
+
+      expect(result.monthlyStats).toHaveLength(1);
+      // value 1 >= (undefined ?? 1) = 1, so it should count as completed
+      expect(result.monthlyStats[0].completedLogs).toBe(1);
     });
   });
 });

@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getMonthlyLogs } from '../../api/logApi';
+import { getFreezeStatus } from '../../api/habitApi';
+import { useAuth } from '../../context/AuthContext';
+import { getLocalDateString } from '../../utils/dateUtils';
 import CalendarHeatmap from './CalendarHeatmap';
 import HabitSelector from './HabitSelector';
 import Card from '../ui/Card';
@@ -14,12 +17,17 @@ const MONTH_NAMES = [
 ];
 
 export default function MonthlyAnalytics() {
+  const { user } = useAuth();
   const now = new Date();
+  const createdDateStr = user?.createdAt ? getLocalDateString(new Date(user.createdAt)) : null;
+  const minMonth = createdDateStr ? Number(createdDateStr.split('-')[1]) : null;
+  const minYear = createdDateStr ? Number(createdDateStr.split('-')[0]) : null;
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
+  const [frozenDates, setFrozenDates] = useState(new Set());
   const fetchIdRef = useRef(0);
 
   useEffect(() => {
@@ -40,6 +48,19 @@ export default function MonthlyAnalytics() {
     };
     fetchData();
   }, [month, year]);
+
+  // Fetch frozen dates when a habit is selected
+  useEffect(() => {
+    if (!selectedHabit) { setFrozenDates(new Set()); return; }
+    getFreezeStatus(selectedHabit)
+      .then(({ data: res }) => setFrozenDates(new Set(res.data.frozenDates || [])))
+      .catch(() => setFrozenDates(new Set()));
+  }, [selectedHabit]);
+
+  const canGoBack = minYear != null
+    ? year > minYear || (year === minYear && month > minMonth)
+    : true;
+  const canGoForward = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1);
 
   const shiftMonth = (delta) => {
     let newMonth = month + delta;
@@ -76,7 +97,7 @@ export default function MonthlyAnalytics() {
     let completionSum = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr)) continue;
+      if (!wasHabitCreatedOnOrBefore(habit.createdAt, dateStr, habit.createdDate)) continue;
       const dow = new Date(year, month - 1, d).getDay();
       if (!habit.frequency.includes(dow)) continue;
       scheduled++;
@@ -102,7 +123,7 @@ export default function MonthlyAnalytics() {
     <div className="space-y-5">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => shiftMonth(-1)}>
+        <Button variant="ghost" size="sm" onClick={() => shiftMonth(-1)} disabled={!canGoBack}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -110,7 +131,7 @@ export default function MonthlyAnalytics() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           {MONTH_NAMES[month - 1]} {year}
         </h3>
-        <Button variant="ghost" size="sm" onClick={() => shiftMonth(1)}>
+        <Button variant="ghost" size="sm" onClick={() => shiftMonth(1)} disabled={!canGoForward}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -127,6 +148,7 @@ export default function MonthlyAnalytics() {
           logs={data.logs}
           habits={data.habits}
           selectedHabitId={selectedHabit}
+          frozenDates={frozenDates}
         />
       </Card>
 

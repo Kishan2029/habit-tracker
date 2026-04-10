@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
+import { getBatchFreezeStatus } from '../../api/habitApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
+import { useToday } from '../../utils/useToday';
+import { useAuth } from '../../context/AuthContext';
 import { getCategoryConfig } from '../../config/categories';
 import { getHabitCreatedDateString, wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 import SharedBadge from '../ui/SharedBadge';
@@ -24,10 +27,15 @@ function getWeekDays(startStr) {
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function WeeklyView() {
-  const today = getLocalDateString();
-  const [weekStart, setWeekStart] = useState(getWeekStart(today));
+  const { user } = useAuth();
+  const today = useToday();
+  const accountCreated = user?.createdAt ? getLocalDateString(new Date(user.createdAt)) : null;
+  const currentWeekStart = getWeekStart(today);
+  const minWeekStart = accountCreated ? getWeekStart(accountCreated) : null;
+  const [weekStart, setWeekStart] = useState(currentWeekStart);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [frozenMap, setFrozenMap] = useState(new Map()); // habitId -> Set<dateStr>
   const fetchIdRef = useRef(0);
   const navigate = useNavigate();
 
@@ -65,6 +73,23 @@ export default function WeeklyView() {
     fetchData();
   }, [fetchData]);
 
+  // Fetch frozen dates for user's own habits (batch)
+  useEffect(() => {
+    if (!data?.habits?.length) return;
+    const ownHabits = data.habits.filter((h) => !h.isShared || h.myRole === 'owner');
+    if (ownHabits.length === 0) return;
+    const ids = ownHabits.map((h) => h._id);
+    getBatchFreezeStatus(ids)
+      .then(({ data: res }) => {
+        const map = new Map();
+        for (const [hid, status] of Object.entries(res.data)) {
+          map.set(hid, new Set(status.frozenDates || []));
+        }
+        setFrozenMap(map);
+      })
+      .catch(() => {});
+  }, [weekStart]);
+
   const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit, delta = 1) => {
     // Block viewers from logging shared habits
     if (habit.isShared && habit.myRole === 'viewer') {
@@ -79,34 +104,39 @@ export default function WeeklyView() {
       if (newValue === currentValue) return; // no change
     }
 
-    const prevData = data;
-
-    // Optimistic update — reflect change instantly in the logs array
-    const existingIndex = data.logs.findIndex(
-      (log) => log.habitId === habitId && log.date.split('T')[0] === dateStr
-    );
-    let newLogs;
-    if (existingIndex >= 0) {
-      newLogs = data.logs.map((log, i) =>
-        i === existingIndex ? { ...log, value: newValue } : log
+    // Capture snapshot inside updater so rollback reflects the true pre-update state
+    let snapshot;
+    setData((prev) => {
+      if (!prev) return prev;
+      snapshot = prev;
+      const existingIndex = prev.logs.findIndex(
+        (log) => log.habitId === habitId && log.date.split('T')[0] === dateStr
       );
-    } else {
-      newLogs = [...data.logs, { habitId, date: dateStr, value: newValue }];
-    }
-    setData({ ...data, logs: newLogs });
+      let newLogs;
+      if (existingIndex >= 0) {
+        newLogs = prev.logs.map((log, i) =>
+          i === existingIndex ? { ...log, value: newValue } : log
+        );
+      } else {
+        newLogs = [...prev.logs, { habitId, date: dateStr, value: newValue }];
+      }
+      return { ...prev, logs: newLogs };
+    });
 
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
       silentRefresh(); // sync from server
     } catch (err) {
-      setData(prevData); // rollback on failure
+      setData(snapshot); // rollback to true pre-update state
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  }, [data, silentRefresh]);
+  }, [silentRefresh]);
 
-  const goToPrevWeek = () => setWeekStart(shiftDate(weekStart, -7));
-  const goToNextWeek = () => setWeekStart(shiftDate(weekStart, 7));
-  const goToThisWeek = () => setWeekStart(getWeekStart(today));
+  const canGoPrev = !minWeekStart || shiftDate(weekStart, -7) >= minWeekStart;
+  const canGoNext = weekStart < currentWeekStart;
+  const goToPrevWeek = () => canGoPrev && setWeekStart(shiftDate(weekStart, -7));
+  const goToNextWeek = () => canGoNext && setWeekStart(shiftDate(weekStart, 7));
+  const goToThisWeek = () => setWeekStart(currentWeekStart);
 
   if (loading) return <LoadingSpinner />;
 
@@ -136,15 +166,23 @@ export default function WeeklyView() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Weekly View</h1>
         <div className="flex items-center gap-2">
-          <button onClick={goToPrevWeek} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <button onClick={goToThisWeek} className="px-3 py-1 rounded-lg text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition">
-            This Week
-          </button>
-          <button onClick={goToNextWeek} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
+          {(() => {
+            const enabledNav = 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300';
+            const disabledNav = 'text-gray-300 dark:text-gray-600 cursor-not-allowed';
+            return (
+              <>
+                <button onClick={goToPrevWeek} disabled={!canGoPrev} className={`p-2 rounded-lg transition ${canGoPrev ? enabledNav : disabledNav}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button onClick={goToThisWeek} className="px-3 py-1 rounded-lg text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition">
+                  This Week
+                </button>
+                <button onClick={goToNextWeek} disabled={!canGoNext} className={`p-2 rounded-lg transition ${canGoNext ? enabledNav : disabledNav}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -164,7 +202,7 @@ export default function WeeklyView() {
           <tbody>
             {data.habits.map((habit) => {
               const cat = getCategoryConfig(habit.category);
-              const createdDate = getHabitCreatedDateString(habit.createdAt);
+              const createdDate = getHabitCreatedDateString(habit.createdAt, habit.createdDate);
               return (
                 <tr key={habit._id} className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${habit.isShared ? (habit.myRole === 'owner' ? 'bg-indigo-50/30 dark:bg-indigo-900/5' : 'bg-purple-50/30 dark:bg-purple-900/5') : ''}`}>
                   <td className="py-3 px-4">
@@ -181,7 +219,7 @@ export default function WeeklyView() {
                   </td>
                   {weekDays.map((d) => {
                     const dayOfWeek = parseLocalDate(d).getDay();
-                    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, d);
+                    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, d, habit.createdDate);
                     const isScheduled = existsOnDate && habit.frequency.includes(dayOfWeek);
                     const isFuture = d > today;
                     const log = logMap.get(`${habit._id}-${d}`);
@@ -189,6 +227,7 @@ export default function WeeklyView() {
                     const isCompleted = value
                       ? typeof value === 'boolean' ? value : value >= habit.target
                       : false;
+                    const isFrozen = frozenMap.get(habit._id)?.has(d);
 
                     if (!existsOnDate) {
                       return (
@@ -226,7 +265,10 @@ export default function WeeklyView() {
                     }
 
                     return (
-                      <td key={d} className="py-3 px-2 text-center">
+                      <td key={d} className="py-3 px-2 text-center relative">
+                        {isFrozen && (
+                          <span className="absolute top-1 right-1 text-[10px] text-blue-400" title="Frozen day">&#10052;</span>
+                        )}
                         {habit.type === 'boolean' ? (
                           <button
                             onClick={() => handleToggle(habit._id, d, value, habit)}

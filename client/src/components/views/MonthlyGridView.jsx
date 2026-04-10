@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, parseLocalDate } from '../../utils/dateUtils';
+import { useToday } from '../../utils/useToday';
 import { getCategoryConfig } from '../../config/categories';
 import { wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
 import Card from '../ui/Card';
@@ -21,13 +22,13 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 
 export default function MonthlyGridView() {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [yearMonth, setYearMonth] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
+  const { year, month } = yearMonth;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
   const navigate = useNavigate();
-  const today = getLocalDateString();
+  const today = useToday();
   const fetchIdRef = useRef(0);
 
   const { start, end, lastDay } = getMonthBounds(year, month);
@@ -73,12 +74,14 @@ export default function MonthlyGridView() {
   }, [today, fetchData]);
 
   const prevMonth = () => {
-    if (month === 1) { setMonth(12); setYear(year - 1); }
-    else setMonth(month - 1);
+    setYearMonth(({ year: y, month: m }) =>
+      m === 1 ? { year: y - 1, month: 12 } : { year: y, month: m - 1 }
+    );
   };
   const nextMonth = () => {
-    if (month === 12) { setMonth(1); setYear(year + 1); }
-    else setMonth(month + 1);
+    setYearMonth(({ year: y, month: m }) =>
+      m === 12 ? { year: y + 1, month: 1 } : { year: y, month: m + 1 }
+    );
   };
 
   if (loading) return <LoadingSpinner />;
@@ -116,7 +119,7 @@ export default function MonthlyGridView() {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const log = logMap.get(`${habit._id}-${dateStr}`);
     const dayOfWeek = parseLocalDate(dateStr).getDay();
-    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, dateStr);
+    const existsOnDate = wasHabitCreatedOnOrBefore(habit.createdAt, dateStr, habit.createdDate);
     const isScheduled = existsOnDate && habit.frequency.includes(dayOfWeek);
     const value = log?.value;
     const isCompleted = value

@@ -2,11 +2,12 @@ import {
   toDateString,
   addDays,
   getTodayUTC,
+  getTodayInTimezone,
   getDayOfWeek,
 } from "../utils/dateHelpers.js";
 
 class StreakService {
-  calculateStreaks(logs, frequency, target, habitCreatedAt) {
+  calculateStreaks(logs, { frequency, target, habitCreatedAt, createdDate, timezone, frozenDates = new Set() } = {}) {
     const completedSet = new Set();
 
     for (const log of logs) {
@@ -19,8 +20,11 @@ class StreakService {
       }
     }
 
-    const today = getTodayUTC();
-    const creationDate = new Date(habitCreatedAt);
+    const today = timezone ? getTodayInTimezone(timezone) : getTodayUTC();
+    // Prefer createdDate (local YYYY-MM-DD) over createdAt (UTC timestamp)
+    const creationDate = createdDate
+      ? new Date(`${createdDate}T00:00:00.000Z`)
+      : new Date(habitCreatedAt);
     creationDate.setUTCHours(0, 0, 0, 0);
 
     // Use the earliest log date if it's before creation (handles backdated logs)
@@ -63,6 +67,8 @@ class StreakService {
         if (tempStreak > longestStreak) {
           longestStreak = tempStreak;
         }
+      } else if (frozenDates.has(dateStr)) {
+        // Frozen day — streak preserved but not incremented
       } else {
         tempStreak = 0;
       }
@@ -83,6 +89,9 @@ class StreakService {
     for (let i = startIdx; i >= 0; i--) {
       if (completedSet.has(scheduledDates[i])) {
         currentStreak++;
+      } else if (frozenDates.has(scheduledDates[i])) {
+        // Frozen day — streak preserved but not incremented
+        continue;
       } else {
         break;
       }

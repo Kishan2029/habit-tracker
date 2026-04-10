@@ -1,7 +1,8 @@
 import HabitLog from '../models/HabitLog.js';
 import Habit from '../models/Habit.js';
-import PushSubscription from '../models/PushSubscription.js';
-import pushService from './pushService.js';
+import notificationService from './notificationService.js';
+import emailService from './emailService.js';
+import { NOTIFICATION_TYPES } from '../config/constants.js';
 
 class WeeklySummaryService {
   async generateSummary(userId) {
@@ -54,24 +55,21 @@ class WeeklySummaryService {
     };
   }
 
-  async sendWeeklySummaries() {
-    const subs = await PushSubscription.find();
-    let sent = 0;
+  async sendWeeklySummaryForUser(user) {
+    const summary = await this.generateSummary(user._id);
+    if (!summary) return false;
 
-    for (const sub of subs) {
-      const summary = await this.generateSummary(sub.userId);
-      if (!summary) continue;
-
-      await pushService.sendNotification(sub.userId, {
+    await notificationService.sendWithUser(user, NOTIFICATION_TYPES.WEEKLY_SUMMARY, {
+      pushPayload: {
         title: `Weekly Summary: ${summary.completionRate}% completion`,
         body: `${summary.completedCount}/${summary.totalExpected} habits done. Best streak: ${summary.bestHabit} (${summary.bestStreak}d)`,
         icon: '/pwa-192x192.png',
         tag: 'weekly-summary',
-      });
-      sent++;
-    }
-
-    console.log(`[Weekly Summary] Sent ${sent} notifications`);
+      },
+      emailFn: (u) =>
+        emailService.sendWeeklySummaryEmail(u.email, u.name, summary),
+    });
+    return true;
   }
 }
 

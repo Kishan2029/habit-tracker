@@ -1,34 +1,57 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-const mockSendMail = jest.fn();
-
-jest.unstable_mockModule('nodemailer', () => ({
-  default: {
-    createTransport: jest.fn(() => ({
-      sendMail: mockSendMail,
-    })),
-  },
-}));
-
 jest.unstable_mockModule('../../config/env.js', () => ({
   default: {
-    smtp: { host: 'smtp.test.com', port: 587, user: 'user', pass: 'pass' },
-    emailFrom: 'noreply@test.com',
     clientUrl: 'http://localhost:5173',
     adminEmail: 'admin@test.com',
+    email: {
+      provider: 'none',
+      from: 'Habit Tracker <noreply@test.com>',
+      replyTo: '',
+      requestTimeoutMs: 10000,
+      resendApiKey: '',
+      brevoApiKey: '',
+    },
+    smtp: { host: '', port: 587, user: '', pass: '' },
+    emailFrom: 'Habit Tracker <noreply@test.com>',
+    emailReplyTo: '',
+    emailRequestTimeoutMs: 10000,
   },
 }));
 
-const { default: emailService } = await import('../../services/emailService.js');
+const { EmailService } = await import('../../services/emailService.js');
+const { createNoopEmailProvider } = await import('../../services/email/providers/noopEmailProvider.js');
+
+const createMockProvider = (overrides = {}) => ({
+  key: 'mock',
+  isConfigured: true,
+  send: jest.fn().mockResolvedValue({ provider: 'mock', externalId: 'msg_123' }),
+  ...overrides,
+});
+
+const createEnvConfig = (overrides = {}) => ({
+  clientUrl: 'http://localhost:5173',
+  adminEmail: 'admin@test.com',
+  ...overrides,
+});
 
 describe('EmailService', () => {
+  let provider;
+  let emailService;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    provider = createMockProvider();
+    emailService = new EmailService({
+      envConfig: createEnvConfig(),
+      provider,
+    });
   });
 
-  describe('constructor', () => {
-    it('should be configured when SMTP credentials are present', () => {
+  describe('getters', () => {
+    it('should expose provider configuration state', () => {
       expect(emailService.isConfigured).toBe(true);
+      expect(emailService.providerKey).toBe('mock');
     });
   });
 
@@ -45,118 +68,100 @@ describe('EmailService', () => {
   });
 
   describe('_wrap', () => {
-    it('should wrap content in email template', () => {
+    it('should wrap content in the shared email layout', () => {
       const result = emailService._wrap('<p>Hello</p>');
+
       expect(result).toContain('Habit Tracker');
       expect(result).toContain('<p>Hello</p>');
     });
   });
 
   describe('_send', () => {
-    it('should send email when configured', async () => {
-      mockSendMail.mockResolvedValue({});
-      await emailService._send('user@test.com', 'Subject', '<p>Body</p>', 'Test');
+    it('should wrap HTML and add plain-text fallback', async () => {
+      await emailService._send('user@test.com', 'Subject', '<p>Body</p>', 'Test label');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          from: 'noreply@test.com',
           to: 'user@test.com',
           subject: 'Subject',
+          label: 'Test label',
+          text: 'Body',
         })
       );
-    });
-
-    it('should log fallback when not configured', async () => {
-      const originalConfigured = emailService.isConfigured;
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      try {
-        emailService.isConfigured = false;
-        await emailService._send('user@test.com', 'Subject', '<p>Body</p>', 'Test label');
-
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[Email Fallback]'));
-        expect(mockSendMail).not.toHaveBeenCalled();
-      } finally {
-        emailService.isConfigured = originalConfigured;
-        consoleSpy.mockRestore();
-      }
+      expect(provider.send.mock.calls[0][0].html).toContain('Habit Tracker');
+      expect(provider.send.mock.calls[0][0].html).toContain('<p>Body</p>');
     });
   });
 
   describe('sendWelcomeEmail', () => {
-    it('should send welcome email with correct content', async () => {
-      mockSendMail.mockResolvedValue({});
+    it('should send welcome email with the expected content', async () => {
       await emailService.sendWelcomeEmail('user@test.com', 'Alice');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'user@test.com',
           subject: 'Welcome to Habit Tracker!',
+          label: 'Welcome email',
         })
       );
-      const html = mockSendMail.mock.calls[0][0].html;
+      const html = provider.send.mock.calls[0][0].html;
       expect(html).toContain('Alice');
       expect(html).toContain('Get Started');
     });
   });
 
   describe('sendPasswordResetEmail', () => {
-    it('should send reset email when configured', async () => {
-      mockSendMail.mockResolvedValue({});
+    it('should require delivery for password reset emails', async () => {
       await emailService.sendPasswordResetEmail('user@test.com', 'reset123');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
+          to: 'user@test.com',
           subject: 'Reset your Habit Tracker password',
+          label: 'Password reset email',
+          requireDelivery: true,
         })
       );
-      const html = mockSendMail.mock.calls[0][0].html;
-      expect(html).toContain('reset123');
+      expect(provider.send.mock.calls[0][0].html).toContain('reset123');
     });
 
-    it('should log fallback when not configured', async () => {
-      const originalConfigured = emailService.isConfigured;
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      try {
-        emailService.isConfigured = false;
-        await emailService.sendPasswordResetEmail('user@test.com', 'reset123');
+    it('should throw when no provider is configured', async () => {
+      const noopService = new EmailService({
+        envConfig: createEnvConfig(),
+        provider: createNoopEmailProvider(),
+      });
 
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Password reset email')
-        );
-        expect(mockSendMail).not.toHaveBeenCalled();
-      } finally {
-        emailService.isConfigured = originalConfigured;
-        consoleSpy.mockRestore();
-      }
+      await expect(
+        noopService.sendPasswordResetEmail('user@test.com', 'reset123')
+      ).rejects.toThrow('Email service not configured');
     });
   });
 
   describe('sendPasswordResetConfirmationEmail', () => {
     it('should send confirmation email', async () => {
-      mockSendMail.mockResolvedValue({});
       await emailService.sendPasswordResetConfirmationEmail('user@test.com', 'Alice');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: 'Your password has been reset',
+          label: 'Password reset confirmation',
         })
       );
-      const html = mockSendMail.mock.calls[0][0].html;
-      expect(html).toContain('Alice');
+      expect(provider.send.mock.calls[0][0].html).toContain('Alice');
     });
   });
 
   describe('sendHabitInviteEmail', () => {
     it('should send invite email with all details', async () => {
-      mockSendMail.mockResolvedValue({});
       await emailService.sendHabitInviteEmail('bob@test.com', 'Bob', 'Alice', 'Exercise', 'code123');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'bob@test.com',
+          label: 'Habit invite',
         })
       );
-      const html = mockSendMail.mock.calls[0][0].html;
+      const html = provider.send.mock.calls[0][0].html;
       expect(html).toContain('Bob');
       expect(html).toContain('Alice');
       expect(html).toContain('Exercise');
@@ -166,36 +171,35 @@ describe('EmailService', () => {
 
   describe('sendFeedbackNotification', () => {
     it('should send feedback notification to admin', async () => {
-      mockSendMail.mockResolvedValue({});
       await emailService.sendFeedbackNotification('Alice', 'alice@test.com', 'happy', 'Great!', 'dashboard');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'admin@test.com',
+          label: 'Feedback notification',
         })
       );
     });
 
-    it('should include mood emoji', async () => {
-      mockSendMail.mockResolvedValue({});
+    it('should include mood emoji in the HTML body', async () => {
       await emailService.sendFeedbackNotification('Alice', 'alice@test.com', 'loved', 'Awesome', null);
 
-      const html = mockSendMail.mock.calls[0][0].html;
-      expect(html).toContain('\u{1F60D}');
+      expect(provider.send.mock.calls[0][0].html).toContain('\u{1F60D}');
     });
 
-    it('should skip if admin email not configured', async () => {
-      const { default: env } = await import('../../config/env.js');
-      const originalAdminEmail = env.adminEmail;
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      try {
-        env.adminEmail = '';
-        await emailService.sendFeedbackNotification('Alice', 'alice@test.com', 'happy', 'test', null);
+    it('should skip if admin email is not configured', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      const noAdminService = new EmailService({
+        envConfig: createEnvConfig({ adminEmail: '' }),
+        provider,
+      });
 
-        expect(mockSendMail).not.toHaveBeenCalled();
+      try {
+        await noAdminService.sendFeedbackNotification('Alice', 'alice@test.com', 'happy', 'test', null);
+
+        expect(provider.send).not.toHaveBeenCalled();
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('ADMIN_EMAIL not configured'));
       } finally {
-        env.adminEmail = originalAdminEmail;
         consoleSpy.mockRestore();
       }
     });
@@ -203,16 +207,32 @@ describe('EmailService', () => {
 
   describe('sendPasswordChangedEmail', () => {
     it('should send password changed email', async () => {
-      mockSendMail.mockResolvedValue({});
       await emailService.sendPasswordChangedEmail('user@test.com', 'Alice');
 
-      expect(mockSendMail).toHaveBeenCalledWith(
+      expect(provider.send).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: 'Your Habit Tracker password was changed',
+          label: 'Password changed',
         })
       );
-      const html = mockSendMail.mock.calls[0][0].html;
-      expect(html).toContain('Alice');
+      expect(provider.send.mock.calls[0][0].html).toContain('Alice');
+    });
+  });
+
+  describe('sendWeeklySummaryEmail', () => {
+    it('should accept summary objects from weeklySummaryService', async () => {
+      await emailService.sendWeeklySummaryEmail('user@test.com', 'Alice', {
+        completionRate: 80,
+        completedCount: 4,
+        totalExpected: 5,
+        bestHabit: 'Exercise',
+        bestStreak: 8,
+      });
+
+      const html = provider.send.mock.calls[0][0].html;
+      expect(html).toContain('80%');
+      expect(html).toContain('4/5');
+      expect(html).toContain('Exercise');
     });
   });
 });

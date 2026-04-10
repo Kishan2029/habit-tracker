@@ -10,6 +10,9 @@ import {
   daysBetween,
   addDays,
   getTodayUTC,
+  getHourInTimezone,
+  getTodayInTimezone,
+  getYesterdayInTimezone,
 } from '../../utils/dateHelpers.js';
 
 describe('dateHelpers', () => {
@@ -168,6 +171,68 @@ describe('dateHelpers', () => {
       expect(today.getUTCFullYear()).toBe(now.getUTCFullYear());
       expect(today.getUTCMonth()).toBe(now.getUTCMonth());
       expect(today.getUTCDate()).toBe(now.getUTCDate());
+    });
+  });
+
+  describe('getHourInTimezone', () => {
+    it('should return the hour in a valid timezone', () => {
+      // Create a date at a known UTC time
+      const date = new Date('2025-06-15T14:30:00.000Z');
+      // America/New_York is UTC-4 in summer (EDT), so 14 UTC = 10 local
+      const hour = getHourInTimezone(date, 'America/New_York');
+      expect(hour).toBe(10);
+    });
+
+    it('should return a different hour for a different timezone', () => {
+      const date = new Date('2025-06-15T14:30:00.000Z');
+      // Asia/Tokyo is UTC+9, so 14 UTC = 23 local
+      const hour = getHourInTimezone(date, 'Asia/Tokyo');
+      expect(hour).toBe(23);
+    });
+
+    it('should fall back to getUTCHours for an invalid timezone', () => {
+      const date = new Date('2025-06-15T14:30:00.000Z');
+      const hour = getHourInTimezone(date, 'Invalid/Timezone');
+      expect(hour).toBe(date.getUTCHours());
+    });
+  });
+
+  describe('getTodayInTimezone', () => {
+    it('should return a date at UTC midnight for a valid timezone', () => {
+      const today = getTodayInTimezone('America/New_York');
+      expect(today.getUTCHours()).toBe(0);
+      expect(today.getUTCMinutes()).toBe(0);
+      expect(today.getUTCSeconds()).toBe(0);
+      expect(today.getUTCMilliseconds()).toBe(0);
+    });
+
+    it('should return a valid Date object for a valid timezone', () => {
+      const today = getTodayInTimezone('Europe/London');
+      expect(today).toBeInstanceOf(Date);
+      expect(isNaN(today.getTime())).toBe(false);
+    });
+
+    it('should fall back to getTodayUTC for an invalid timezone', () => {
+      const today = getTodayInTimezone('Invalid/Timezone');
+      const todayUTC = getTodayUTC();
+      expect(today.toISOString()).toBe(todayUTC.toISOString());
+    });
+  });
+
+  describe('getYesterdayInTimezone', () => {
+    it('should return one day before today in the given timezone', () => {
+      const today = getTodayInTimezone('America/New_York');
+      const yesterday = getYesterdayInTimezone('America/New_York');
+      const diffMs = today.getTime() - yesterday.getTime();
+      expect(diffMs).toBe(24 * 60 * 60 * 1000);
+    });
+
+    it('should return a date at UTC midnight', () => {
+      const yesterday = getYesterdayInTimezone('Asia/Tokyo');
+      expect(yesterday.getUTCHours()).toBe(0);
+      expect(yesterday.getUTCMinutes()).toBe(0);
+      expect(yesterday.getUTCSeconds()).toBe(0);
+      expect(yesterday.getUTCMilliseconds()).toBe(0);
     });
   });
 });

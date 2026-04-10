@@ -67,6 +67,14 @@ const habitSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    createdDate: {
+      type: String,
+      validate: {
+        validator: (v) =>
+          !v || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))),
+        message: 'createdDate must be a valid YYYY-MM-DD date',
+      },
+    },
   },
   { timestamps: true }
 );

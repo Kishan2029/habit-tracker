@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getHabits, createHabit, updateHabit, archiveHabit, unarchiveHabit, deleteHabit, reorderHabits } from '../../api/habitApi';
+import { getLocalDateString } from '../../utils/dateUtils';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import SortableHabitCard from './SortableHabitCard';
 import HabitForm from './HabitForm';
+import TemplateSelector from './TemplateSelector';
 import ShareHabitModal from './ShareHabitModal';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -21,6 +23,8 @@ export default function HabitList() {
   const [sharingHabit, setSharingHabit] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateValues, setTemplateValues] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -45,7 +49,7 @@ export default function HabitList() {
   const handleCreate = async (formData) => {
     setSaving(true);
     try {
-      await createHabit(formData);
+      await createHabit({ ...formData, createdDate: getLocalDateString() });
       toast.success('Habit created!');
       setShowForm(false);
       fetchHabits();
@@ -132,7 +136,7 @@ export default function HabitList() {
             />
             Show archived
           </label>
-          <Button onClick={() => setShowForm(true)}>
+          <Button onClick={() => setShowTemplates(true)}>
             + New Habit
           </Button>
         </div>
@@ -171,7 +175,7 @@ export default function HabitList() {
           title="No habits yet"
           description="Create your first habit to start tracking your daily progress!"
           actionLabel="Create Habit"
-          onAction={() => setShowForm(true)}
+          onAction={() => setShowTemplates(true)}
         />
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -193,13 +197,33 @@ export default function HabitList() {
       )}
 
       <Modal
+        isOpen={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        title="Choose a Template"
+      >
+        <TemplateSelector
+          onSelect={(template) => {
+            setTemplateValues(template);
+            setShowTemplates(false);
+            setShowForm(true);
+          }}
+          onScratch={() => {
+            setTemplateValues(null);
+            setShowTemplates(false);
+            setShowForm(true);
+          }}
+        />
+      </Modal>
+
+      <Modal
         isOpen={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={() => { setShowForm(false); setTemplateValues(null); }}
         title="Create New Habit"
       >
         <HabitForm
+          initialValues={templateValues}
           onSubmit={handleCreate}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => { setShowForm(false); setTemplateValues(null); }}
           isLoading={saving}
         />
       </Modal>
