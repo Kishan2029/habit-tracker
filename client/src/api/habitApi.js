@@ -23,3 +23,5 @@ export const reorderHabits = (items) => api.put('/habits/reorder', { items });
 export const freezeDay = (habitId, date) => api.post(`/habits/${habitId}/freeze`, { date });
 
 export const getFreezeStatus = (habitId) => api.get(`/habits/${habitId}/freeze-status`);
+
+export const getBatchFreezeStatus = (ids) => api.get(`/habits/batch-freeze-status?ids=${ids.join(',')}`);

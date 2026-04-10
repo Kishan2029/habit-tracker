@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getDailyLogs, createLog } from '../../api/logApi';
-import { freezeDay, getFreezeStatus } from '../../api/habitApi';
+import { freezeDay, getBatchFreezeStatus } from '../../api/habitApi';
 import { useAuth } from '../../context/AuthContext';
 import DateNavigator from './DateNavigator';
 import DailyProgressBar from './DailyProgressBar';
@@ -29,9 +29,11 @@ export default function TodayView() {
   const [loading, setLoading] = useState(true);
   const [expandedHabit, setExpandedHabit] = useState(null);
   const [sharedInfoHabit, setSharedInfoHabit] = useState(null); // { habit, myRole }
+  const [frozenDates, setFrozenDates] = useState(new Set()); // Set<habitId:date> for current date
   const [collapsedCategories, setCollapsedCategories] = useState(() => {
     try {
-      const saved = localStorage.getItem('collapsedCategories');
+      const key = `collapsedCategories_${user?._id || 'default'}`;
+      const saved = localStorage.getItem(key);
       return saved ? new Set(JSON.parse(saved)) : new Set();
     } catch { return new Set(); }
   });
@@ -130,7 +132,8 @@ export default function TodayView() {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
       else next.add(category);
-      localStorage.setItem('collapsedCategories', JSON.stringify([...next]));
+      const key = `collapsedCategories_${user?._id || 'default'}`;
+      localStorage.setItem(key, JSON.stringify([...next]));
       return next;
     });
   };
@@ -148,6 +151,26 @@ export default function TodayView() {
       toast.error('Failed to save note');
     }
   };
+
+  // Fetch frozen dates for displayed habits
+  useEffect(() => {
+    if (!data?.habits?.length || !freezeEnabled) return;
+    const ownHabits = data.habits
+      .filter(({ isShared, myRole }) => !isShared || myRole === 'owner')
+      .map(({ habit }) => habit._id);
+    if (ownHabits.length === 0) return;
+    getBatchFreezeStatus(ownHabits)
+      .then(({ data: res }) => {
+        const set = new Set();
+        for (const [hid, status] of Object.entries(res.data)) {
+          for (const d of status.frozenDates || []) {
+            set.add(`${hid}:${d}`);
+          }
+        }
+        setFrozenDates(set);
+      })
+      .catch(() => {});
+  }, [data?.habits, freezeEnabled]);
 
   const handleFreeze = async (habitId) => {
     try {
@@ -233,9 +256,9 @@ export default function TodayView() {
               style={{ gridTemplateRows: collapsedCategories.has(group.value) ? '0fr' : '1fr' }}
             >
               <div className="overflow-hidden">
-              <div className="space-y-3 pt-0.5">
+              <div className="space-y-3">
                 {group.entries.map(({ habit, log, isCompleted, isShared, sharedBy, myRole }) => (
-                  <Card key={habit._id} className="p-4">
+                  <Card key={habit._id} className="p-4 first:mt-0.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div
@@ -257,18 +280,26 @@ export default function TodayView() {
                           </div>
                           <div className="flex items-center gap-2">
                             <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
-                            {freezeEnabled && !isCompleted && date < today && (!isShared || myRole === 'owner') && (
-                              <button
-                                onClick={() => handleFreeze(habit._id)}
-                                className="text-xs text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 flex items-center gap-0.5 transition"
-                                title="Freeze this day to protect your streak"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                                </svg>
-                                <span>Freeze</span>
-                              </button>
-                            )}
+                            {freezeEnabled && date < today && (!isShared || myRole === 'owner') && (() => {
+                              const isFrozen = frozenDates.has(`${habit._id}:${date}`);
+                              if (isFrozen) return (
+                                <span className="text-xs text-blue-400 flex items-center gap-0.5" title="This day is frozen">
+                                  <span>&#10052;</span>
+                                  <span>Frozen</span>
+                                </span>
+                              );
+                              if (isCompleted) return null;
+                              return (
+                                <button
+                                  onClick={() => handleFreeze(habit._id)}
+                                  className="text-xs text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 flex items-center gap-0.5 transition"
+                                  title="Freeze this day to protect your streak"
+                                >
+                                  <span>&#10052;</span>
+                                  <span>Freeze</span>
+                                </button>
+                              );
+                            })()}
                             {isShared && (
                               <>
                                 <button

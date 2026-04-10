@@ -14,6 +14,7 @@ import {
   reorderHabits,
   freezeDay,
   getFreezeStatus,
+  getBatchFreezeStatus,
 } from '../controllers/habitController.js';
 
 const router = Router();
@@ -112,6 +113,27 @@ router.get('/', getHabits);
  *                   example: Habits reordered
  */
 router.put('/reorder', reorderHabitRules, validate, reorderHabits);
+
+/**
+ * @swagger
+ * /habits/batch-freeze-status:
+ *   get:
+ *     summary: Get freeze status for multiple habits at once
+ *     tags: [Habits]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: ids
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Comma-separated habit IDs (max 50)
+ *     responses:
+ *       200:
+ *         description: Batch freeze status retrieved
+ */
+router.get('/batch-freeze-status', getBatchFreezeStatus);
 
 /**
  * @swagger

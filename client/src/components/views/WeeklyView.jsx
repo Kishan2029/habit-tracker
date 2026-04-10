@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
-import { getFreezeStatus } from '../../api/habitApi';
+import { getBatchFreezeStatus } from '../../api/habitApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
 import { useToday } from '../../utils/useToday';
 import { useAuth } from '../../context/AuthContext';
@@ -73,18 +73,22 @@ export default function WeeklyView() {
     fetchData();
   }, [fetchData]);
 
-  // Fetch frozen dates for user's own habits
+  // Fetch frozen dates for user's own habits (batch)
   useEffect(() => {
     if (!data?.habits?.length) return;
     const ownHabits = data.habits.filter((h) => !h.isShared || h.myRole === 'owner');
-    Promise.all(
-      ownHabits.map((h) =>
-        getFreezeStatus(h._id)
-          .then(({ data: res }) => [h._id, new Set(res.data.frozenDates || [])])
-          .catch(() => [h._id, new Set()])
-      )
-    ).then((entries) => setFrozenMap(new Map(entries)));
-  }, [data?.habits]);
+    if (ownHabits.length === 0) return;
+    const ids = ownHabits.map((h) => h._id);
+    getBatchFreezeStatus(ids)
+      .then(({ data: res }) => {
+        const map = new Map();
+        for (const [hid, status] of Object.entries(res.data)) {
+          map.set(hid, new Set(status.frozenDates || []));
+        }
+        setFrozenMap(map);
+      })
+      .catch(() => {});
+  }, [weekStart]);
 
   const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit, delta = 1) => {
     // Block viewers from logging shared habits

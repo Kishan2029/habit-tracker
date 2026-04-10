@@ -6,11 +6,17 @@ export default function HabitNotes({ notes, onSave }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(notes || '');
   const savedRef = useRef(false);
+  const blurTimerRef = useRef(null);
 
   // Sync text with parent when not editing (e.g. after silentRefresh)
   useEffect(() => {
     if (!editing) setText(notes || '');
   }, [notes, editing]);
+
+  // Cleanup blur timer on unmount
+  useEffect(() => {
+    return () => { if (blurTimerRef.current) clearTimeout(blurTimerRef.current); };
+  }, []);
 
   const handleSave = () => {
     if (text.trim() !== (notes || '').trim()) {
@@ -28,11 +34,12 @@ export default function HabitNotes({ notes, onSave }) {
 
   const handleBlur = () => {
     // Auto-save on blur (unless cancel/save was just clicked)
-    setTimeout(() => {
+    blurTimerRef.current = setTimeout(() => {
       if (!savedRef.current) {
         handleSave();
       }
       savedRef.current = false;
+      blurTimerRef.current = null;
     }, 100);
   };
 
