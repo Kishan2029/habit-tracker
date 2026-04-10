@@ -202,7 +202,6 @@ class LogService {
       timezone,
       frozenDates,
     });
-  }
 
   async _sendLogNotifications(userId, habit, value, isNew, streaks) {
     const isCompleted = typeof value === 'boolean' ? value === true : value >= habit.target;
