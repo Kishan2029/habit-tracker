@@ -19,6 +19,7 @@ import {
 import { MAX_BACKDATE_DAYS, NOTIFICATION_TYPES, STREAK_MILESTONES } from '../config/constants.js';
 import notificationService from './notificationService.js';
 import emailService from './emailService.js';
+import streakFreezeService from './streakFreezeService.js';
 
 // Uses $and to combine the createdDate/createdAt filter with the active-or-logged filter,
 // so neither collides with any $or/$and the caller may have in baseFilter.
@@ -85,12 +86,14 @@ class LogService {
     const streakMap = new Map();
     for (const habit of sharedHabits) {
       const habitLogs = logsByHabit.get(habit._id.toString()) || [];
+      const frozenDates = await streakFreezeService.getFrozenDatesForHabit(userId, habit._id);
       const streaks = streakService.calculateStreaks(habitLogs, {
         frequency: habit.frequency,
         target: habit.target,
         habitCreatedAt: habit.createdAt,
         createdDate: habit.createdDate,
         timezone,
+        frozenDates,
       });
       streakMap.set(habit._id.toString(), streaks);
     }
@@ -163,12 +166,15 @@ class LogService {
     // For shared habits, calculate streaks per-user
     const query = userId ? { habitId: habit._id, userId } : { habitId: habit._id };
     const logs = await HabitLog.find(query).sort({ date: 1 });
+    const effectiveUserId = userId || habit.userId;
+    const frozenDates = await streakFreezeService.getFrozenDatesForHabit(effectiveUserId, habit._id);
     const { currentStreak, longestStreak } = streakService.calculateStreaks(logs, {
       frequency: habit.frequency,
       target: habit.target,
       habitCreatedAt: habit.createdAt,
       createdDate: habit.createdDate,
       timezone,
+      frozenDates,
     });
 
     // Only update habit-level streaks for the owner
@@ -183,12 +189,14 @@ class LogService {
 
   async getUserStreakForHabit(userId, habit, timezone) {
     const logs = await HabitLog.find({ habitId: habit._id, userId }).sort({ date: 1 });
+    const frozenDates = await streakFreezeService.getFrozenDatesForHabit(userId, habit._id);
     return streakService.calculateStreaks(logs, {
       frequency: habit.frequency,
       target: habit.target,
       habitCreatedAt: habit.createdAt,
       createdDate: habit.createdDate,
       timezone,
+      frozenDates,
     });
   }
 
@@ -610,6 +618,104 @@ class LogService {
       .map(([month, stats]) => ({ _id: { month }, ...stats }));
 
     return { year, habits, monthlyStats, logs: filteredLogs };
+  }
+
+  async getLeaderboard(requesterId, habitId, range = 'week') {
+    const { shared } = await sharedHabitService.getSharingInfo(requesterId, habitId);
+
+    const habit = await Habit.findById(habitId);
+    if (!habit) throw new AppError('Habit not found', 404);
+
+    const today = getTodayUTC();
+    const days = range === 'month' ? 30 : 7;
+    const startDate = new Date(today);
+    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+
+    // Build member list: owner + accepted members
+    const ownerIdStr = (shared.ownerId._id || shared.ownerId).toString();
+    const memberInfos = [{ userId: ownerIdStr, role: 'owner' }];
+    for (const m of shared.sharedWith) {
+      if (m.status === 'accepted') {
+        memberInfos.push({
+          userId: (m.userId._id || m.userId).toString(),
+          role: m.role,
+        });
+      }
+    }
+    const allUserIds = memberInfos.map((m) => m.userId);
+
+    // Fetch all logs in range
+    const logs = await HabitLog.find({
+      habitId,
+      userId: { $in: allUserIds },
+      date: { $gte: startDate, $lte: today },
+    }).sort({ date: 1 });
+
+    // Group logs by userId
+    const logsByUser = new Map();
+    for (const log of logs) {
+      const uid = log.userId.toString();
+      if (!logsByUser.has(uid)) logsByUser.set(uid, []);
+      logsByUser.get(uid).push(log);
+    }
+
+    // Calculate scheduled days in range
+    let scheduledDays = 0;
+    const cursor = new Date(startDate);
+    while (cursor <= today) {
+      if (habit.frequency.includes(getDayOfWeek(cursor))) {
+        scheduledDays++;
+      }
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    // Fetch user details
+    const users = await User.find({ _id: { $in: allUserIds } }, 'name email avatar');
+    const userMap = new Map();
+    for (const u of users) userMap.set(u._id.toString(), u);
+
+    // Build leaderboard entries
+    const entries = memberInfos.map((member) => {
+      const userLogs = logsByUser.get(member.userId) || [];
+      const completedCount = userLogs.filter((log) =>
+        typeof log.value === 'boolean' ? log.value : log.value >= habit.target
+      ).length;
+      const completionRate = scheduledDays > 0 ? Math.round((completedCount / scheduledDays) * 100) : 0;
+
+      // Calculate streak
+      const allUserLogs = logsByUser.get(member.userId) || [];
+      const { currentStreak } = streakService.calculateStreaks(allUserLogs, {
+        frequency: habit.frequency,
+        target: habit.target,
+        habitCreatedAt: habit.createdAt,
+        createdDate: habit.createdDate,
+      });
+
+      const user = userMap.get(member.userId);
+      return {
+        userId: member.userId,
+        name: user?.name || 'Unknown',
+        avatar: user?.avatar || null,
+        role: member.role,
+        completedCount,
+        scheduledDays,
+        completionRate,
+        currentStreak,
+      };
+    });
+
+    // Sort by completion rate desc, then streak desc
+    entries.sort((a, b) => b.completionRate - a.completionRate || b.currentStreak - a.currentStreak);
+
+    // Add rank
+    entries.forEach((entry, i) => { entry.rank = i + 1; });
+
+    return {
+      habitId,
+      habitName: habit.name,
+      range,
+      entries,
+    };
   }
 
   async getMembersProgress(requesterId, habitId, dateString) {

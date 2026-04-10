@@ -14,3 +14,6 @@ export const getRangeLogs = (start, end) =>
 
 export const getMembersProgress = (habitId, date) =>
   api.get(`/logs/shared/${habitId}/progress?date=${date}`);
+
+export const getLeaderboard = (habitId, range = 'week') =>
+  api.get(`/logs/shared/${habitId}/leaderboard?range=${range}`);
