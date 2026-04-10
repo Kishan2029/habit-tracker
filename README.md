@@ -2,7 +2,7 @@
 
 A full-stack habit tracking application with analytics, social sharing, and data export capabilities.
 
-**Live App:** Built with React + Express + MongoDB, deployed on Vercel.
+**Live App:** Built with React + Express + MongoDB, deployed on Vercel. Installable as a PWA.
 
 ## Tech Stack
 
@@ -13,7 +13,7 @@ A full-stack habit tracking application with analytics, social sharing, and data
 | Database | MongoDB with Mongoose |
 | Auth | JWT, bcrypt |
 | File Storage | Cloudinary |
-| Email | Nodemailer (SMTP) |
+| Email | SMTP, Resend, Brevo |
 | Push Notifications | Web Push (VAPID) |
 | Charts | Recharts |
 | Export | ExcelJS, PDFKit |
@@ -28,7 +28,7 @@ A full-stack habit tracking application with analytics, social sharing, and data
 
 ### Environment Variables
 
-Create `server/.env`:
+Create `server/.env.development` for local development and `server/.env.production` for production:
 
 ```env
 # Required
@@ -41,11 +41,23 @@ PORT=5000
 CLIENT_URL=http://localhost:5173
 CORS_ORIGIN=http://localhost:5173
 
-# SMTP (for emails)
+# Email provider (choose one: smtp, resend, or brevo)
+EMAIL_PROVIDER=smtp
+EMAIL_FROM=Habit Tracker <noreply@habit-tracker.com>
+EMAIL_REPLY_TO=support@habit-tracker.com
+EMAIL_REQUEST_TIMEOUT_MS=10000
+
+# SMTP
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=your-email
 SMTP_PASS=your-password
+
+# Resend (alternative to SMTP)
+RESEND_API_KEY=re_xxx
+
+# Brevo (alternative to SMTP)
+BREVO_API_KEY=your-brevo-api-key
 
 # Cloudinary (for avatars)
 CLOUDINARY_CLOUD_NAME=your-cloud
@@ -97,8 +109,13 @@ npx jest
 - Forgot password sends a reset link via email (30-minute expiry)
 - Rate-limited: 5 reset requests / 15 min
 
+**Email Verification**
+- After registration, users verify their email with a 6-digit code
+- Verified email is required to receive email notifications
+
 **Profile Management**
 - Update display name, theme preference (light / dark / system), and timezone
+- Timezone is auto-detected on login/registration using the browser's locale
 - Upload a profile avatar (stored on Cloudinary)
 - Change password (requires current password, returns a new JWT token)
 
@@ -128,6 +145,11 @@ Each category comes with a default icon and color:
 | Social | :handshake: | #EC4899 |
 | Finance | :moneybag: | #14B8A6 |
 | Other | :dart: | #6B7280 |
+
+**Habit Templates**
+- 20+ pre-built templates across 8 categories to get started quickly
+- Each template includes a description and difficulty badge (Easy / Medium / Hard)
+- Select a template to pre-fill habit name, type, target, unit, icon, color, and category
 
 **Organizing Habits**
 - Drag-and-drop to reorder habits
@@ -160,6 +182,13 @@ Each category comes with a default icon and color:
 - Streaks respect habit frequency (only scheduled days count)
 - Count habits require meeting the target value to count as completed
 - Streaks are displayed as badges on habit cards and in the Today view
+- **Streak milestones** — notifications at 7, 14, 21, 30, 50, 100, 200, and 365 days
+
+**Streak Freeze**
+- Freeze a missed day to protect your current streak
+- Limited uses per month (1–2 depending on settings)
+- Frozen dates show a snowflake indicator in calendar heatmaps and weekly view
+- Batch freeze status API for efficient rendering across views
 
 ---
 
@@ -254,18 +283,34 @@ Both exports include owned and shared habits.
 
 **Email Notifications**
 - Welcome email on registration
+- Email verification with 6-digit code
 - Password reset link and confirmation emails
 - Shared habit invitation emails with join links
 - HTML-formatted with branded styling
+- Supports multiple providers: SMTP, Resend, and Brevo (auto-selected via env config)
+
+**Scheduled Notifications**
+- **Daily reminders** — sent at the user's configured time (timezone-aware)
+- **Missed alerts** — notifies at 10 AM if habits were missed yesterday
+- **Weekly summary** — completion stats delivered each week
+
+**Notification Preferences**
+- Granular control over each notification type with separate push and email toggles:
+  - Daily reminders
+  - Streak milestones
+  - Missed alerts
+  - Shared habit activity
+  - Goal completion
+  - Weekly summary
 
 ---
 
 ### 10. Settings & Preferences
 
 - **Theme** — light, dark, or system (auto-detect)
-- **Timezone** — select your timezone for accurate date handling
-- **Notifications** — toggle push notifications on/off
-- **Profile** — edit name, upload/remove avatar
+- **Timezone** — auto-detected on login; can also be set manually
+- **Notifications** — granular toggles for each notification type (push and email)
+- **Profile** — edit name, upload/remove avatar, verify email
 - **Password** — change with current password verification
 
 ---
@@ -278,16 +323,37 @@ Both exports include owned and shared habits.
 
 ---
 
-### 12. API Documentation
+### 12. Progressive Web App (PWA)
+
+- Installable on mobile and desktop — appears as a standalone app named "Habits"
+- Custom Service Worker for push notifications and offline caching
+- Maskable app icons (192x192 and 512x512)
+- Standalone display mode for a native app-like experience
+
+---
+
+### 13. UX Details
+
+- **Confetti celebration** on completing all daily habits (only on active logging, not page load)
+- **"Jump to Today" button** appears when browsing past dates
+- **Auto-save notes** when clicking away from the notes field
+- **Persistent category collapse state** saved per user in localStorage
+- **Smooth animations** for category expand/collapse transitions
+- **Leaderboard highlighting** — current user is highlighted with a ring and "(You)" label in shared habit progress
+- **Invite preview page** — public page showing habit name, owner, and member count before login
+
+---
+
+### 14. API Documentation
 
 Swagger UI is available at `/api-docs` on the server for interactive API exploration.
 
 **API Resources:**
 - `POST /api/auth/register` | `POST /api/auth/login` | `POST /api/auth/forgot-password` | `POST /api/auth/reset-password`
-- `GET/POST /api/habits` | `GET/PUT/DELETE /api/habits/:id` | `PATCH /api/habits/:id/archive` | `PATCH /api/habits/:id/unarchive` | `PUT /api/habits/reorder`
+- `GET/POST /api/habits` | `GET/PUT/DELETE /api/habits/:id` | `PATCH /api/habits/:id/archive` | `PATCH /api/habits/:id/unarchive` | `PUT /api/habits/reorder` | `POST /api/habits/:id/freeze` | `GET /api/habits/:id/freeze-status` | `GET /api/habits/batch-freeze-status`
 - `POST /api/logs` | `GET /api/logs/daily` | `GET /api/logs/monthly` | `GET /api/logs/yearly` | `GET /api/logs/range` | `GET /api/logs/shared/:habitId/progress`
 - `POST /api/shared/share` | `POST /api/shared/join` | `POST /api/shared/invite` | `POST /api/shared/respond` | `GET /api/shared/with-me` | `GET /api/shared/by-me` | `GET /api/shared/pending` | `GET /api/shared/preview/:inviteCode`
-- `GET/PUT /api/users/profile` | `PUT /api/users/change-password` | `POST /api/users/profile/avatar`
+- `GET/PUT /api/users/profile` | `PUT /api/users/change-password` | `POST /api/users/profile/avatar` | `POST /api/users/send-verification` | `POST /api/users/verify-email`
 - `GET /api/export/xlsx` | `GET /api/export/pdf`
 - `POST /api/feedback`
 - `POST /api/push/subscribe` | `POST /api/push/unsubscribe`
