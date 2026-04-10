@@ -7,7 +7,7 @@ import {
 } from "../utils/dateHelpers.js";
 
 class StreakService {
-  calculateStreaks(logs, { frequency, target, habitCreatedAt, createdDate, timezone } = {}) {
+  calculateStreaks(logs, { frequency, target, habitCreatedAt, createdDate, timezone, frozenDates = new Set() } = {}) {
     const completedSet = new Set();
 
     for (const log of logs) {
@@ -67,6 +67,8 @@ class StreakService {
         if (tempStreak > longestStreak) {
           longestStreak = tempStreak;
         }
+      } else if (frozenDates.has(dateStr)) {
+        // Frozen day — streak preserved but not incremented
       } else {
         tempStreak = 0;
       }
@@ -87,6 +89,9 @@ class StreakService {
     for (let i = startIdx; i >= 0; i--) {
       if (completedSet.has(scheduledDates[i])) {
         currentStreak++;
+      } else if (frozenDates.has(scheduledDates[i])) {
+        // Frozen day — streak preserved but not incremented
+        continue;
       } else {
         break;
       }

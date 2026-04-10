@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { param } from 'express-validator';
+import { param, body } from 'express-validator';
 import authenticate from '../middleware/authenticate.js';
 import validate from '../middleware/validate.js';
 import { createHabitRules, updateHabitRules, reorderHabitRules } from '../validators/habitValidators.js';
@@ -12,6 +12,8 @@ import {
   unarchiveHabit,
   deleteHabit,
   reorderHabits,
+  freezeDay,
+  getFreezeStatus,
 } from '../controllers/habitController.js';
 
 const router = Router();
@@ -433,5 +435,73 @@ router.put('/:id/unarchive', idParamRule, validate, unarchiveHabit);
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/:id', idParamRule, validate, deleteHabit);
+
+/**
+ * @swagger
+ * /habits/{id}/freeze:
+ *   post:
+ *     summary: Freeze a missed day to protect streak
+ *     tags: [Habits]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Habit ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [date]
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-04-09"
+ *     responses:
+ *       200:
+ *         description: Day frozen successfully
+ */
+const freezeDateRule = [
+  body('date')
+    .isString()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('date must be a valid YYYY-MM-DD string')
+    .custom((value) => {
+      const d = new Date(`${value}T00:00:00.000Z`);
+      if (Number.isNaN(d.getTime())) throw new Error('date is not a valid calendar date');
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      if (d > today) throw new Error('Cannot freeze a future date');
+      return true;
+    }),
+];
+router.post('/:id/freeze', idParamRule, freezeDateRule, validate, freezeDay);
+
+/**
+ * @swagger
+ * /habits/{id}/freeze-status:
+ *   get:
+ *     summary: Get streak freeze status for a habit
+ *     tags: [Habits]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Habit ID
+ *     responses:
+ *       200:
+ *         description: Freeze status retrieved
+ */
+router.get('/:id/freeze-status', idParamRule, validate, getFreezeStatus);
 
 export default router;

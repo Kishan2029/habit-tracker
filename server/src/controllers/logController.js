@@ -38,6 +38,14 @@ export const getRangeLogs = catchAsync(async (req, res) => {
   sendSuccess(res, data, 'Range logs retrieved');
 });
 
+export const getLeaderboard = catchAsync(async (req, res) => {
+  const range = req.query.range || 'week';
+  if (!['week', 'month'].includes(range)) throw new AppError('range must be "week" or "month"', 400);
+  const timezone = req.user.settings?.timezone || null;
+  const data = await logService.getLeaderboard(req.user._id, req.params.habitId, range, timezone);
+  sendSuccess(res, data, 'Leaderboard retrieved');
+});
+
 export const getMembersProgress = catchAsync(async (req, res) => {
   const date = req.query.date;
   if (!date) throw new AppError('date query parameter is required', 400);

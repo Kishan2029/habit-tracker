@@ -32,6 +32,11 @@ class UserService {
       if (updates.settings.reminderTime !== undefined) {
         user.settings.reminderTime = updates.settings.reminderTime;
       }
+      if (updates.settings.streakFreeze) {
+        const sf = updates.settings.streakFreeze;
+        if (sf.enabled !== undefined) user.settings.streakFreeze.enabled = sf.enabled;
+        if (sf.allowedPerMonth !== undefined) user.settings.streakFreeze.allowedPerMonth = sf.allowedPerMonth;
+      }
       if (updates.settings.notifications) {
         const notifs = updates.settings.notifications;
         for (const [type, channels] of Object.entries(notifs)) {

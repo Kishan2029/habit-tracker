@@ -16,7 +16,7 @@ const defaultForm = {
   category: 'other',
 };
 
-export default function HabitForm({ habit, onSubmit, onCancel, isLoading }) {
+export default function HabitForm({ habit, initialValues, onSubmit, onCancel, isLoading }) {
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
@@ -31,11 +31,13 @@ export default function HabitForm({ habit, onSubmit, onCancel, isLoading }) {
         frequency: habit.frequency || [0, 1, 2, 3, 4, 5, 6],
         category: habit.category || 'other',
       });
+    } else if (initialValues) {
+      setForm({ ...defaultForm, ...initialValues });
     } else {
       // Reset to defaults when opening for create (no habit passed)
       setForm({ ...defaultForm });
     }
-  }, [habit]);
+  }, [habit, initialValues]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
