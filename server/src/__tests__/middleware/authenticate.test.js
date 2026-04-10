@@ -92,4 +92,42 @@ describe('authenticate middleware', () => {
     expect(req.user).toEqual(mockUser);
     expect(next).toHaveBeenCalledWith();
   });
+
+  it('should allow access when passwordChangedAt is before token issue time', async () => {
+    const mockUser = {
+      _id: 'user1',
+      name: 'John',
+      passwordChangedAt: new Date('2024-01-01T00:00:00Z'),
+    };
+    req.headers.authorization = 'Bearer valid-token';
+    // iat is in seconds; set it after passwordChangedAt
+    jwt.verify.mockReturnValue({ id: 'user1', iat: Math.floor(new Date('2024-06-01').getTime() / 1000) });
+    User.findById.mockResolvedValue(mockUser);
+
+    await authenticate(req, res, next);
+
+    expect(req.user).toEqual(mockUser);
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('should reject access when passwordChangedAt is after token issue time', async () => {
+    const mockUser = {
+      _id: 'user1',
+      name: 'John',
+      passwordChangedAt: new Date('2024-06-01T00:00:00Z'),
+    };
+    req.headers.authorization = 'Bearer valid-token';
+    // iat is in seconds; set it before passwordChangedAt
+    jwt.verify.mockReturnValue({ id: 'user1', iat: Math.floor(new Date('2024-01-01').getTime() / 1000) });
+    User.findById.mockResolvedValue(mockUser);
+
+    await authenticate(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Password recently changed. Please log in again.',
+        statusCode: 401,
+      })
+    );
+  });
 });
