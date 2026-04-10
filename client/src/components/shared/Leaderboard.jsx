@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getLeaderboard } from '../../api/logApi';
+import { useAuth } from '../../context/AuthContext';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function Leaderboard({ habitId }) {
+  const { user } = useAuth();
   const [range, setRange] = useState('week');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,13 +43,17 @@ export default function Leaderboard({ habitId }) {
         <div className="py-6 text-center text-sm text-gray-400">No data yet</div>
       ) : (
         <div className="space-y-2">
-          {data.entries.map((entry) => (
+          {data.entries.map((entry) => {
+            const isMe = entry.userId === user?._id;
+            return (
             <div
               key={entry.userId}
               className={`flex items-center gap-3 p-2.5 rounded-lg ${
-                entry.rank <= 3
-                  ? 'bg-indigo-50 dark:bg-indigo-900/10'
-                  : 'bg-gray-50 dark:bg-gray-700/50'
+                isMe
+                  ? 'bg-indigo-100 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-700'
+                  : entry.rank <= 3
+                    ? 'bg-indigo-50 dark:bg-indigo-900/10'
+                    : 'bg-gray-50 dark:bg-gray-700/50'
               }`}
             >
               {/* Rank */}
@@ -66,7 +72,7 @@ export default function Leaderboard({ habitId }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {entry.name}
+                    {entry.name}{isMe && <span className="text-indigo-500 dark:text-indigo-400"> (You)</span>}
                   </p>
                   {entry.role === 'owner' && (
                     <span className="text-xs px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
@@ -95,7 +101,8 @@ export default function Leaderboard({ habitId }) {
                 </span>
               )}
             </div>
-          ))}
+          );
+          })}
 
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-1">
             {data.entries[0]?.scheduledDays || 0} scheduled days in this {range}

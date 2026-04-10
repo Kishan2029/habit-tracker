@@ -54,3 +54,11 @@ export const getFreezeStatus = catchAsync(async (req, res) => {
   const data = await streakFreezeService.getFreezeStatus(req.user._id, req.params.id);
   sendSuccess(res, data, 'Freeze status retrieved');
 });
+
+export const getBatchFreezeStatus = catchAsync(async (req, res) => {
+  const ids = req.query.ids?.split(',').filter(Boolean) || [];
+  if (ids.length === 0) return sendSuccess(res, {}, 'No habits specified');
+  if (ids.length > 50) return sendSuccess(res, {}, 'Too many habits (max 50)');
+  const data = await streakFreezeService.getBatchFreezeStatus(req.user._id, ids);
+  sendSuccess(res, data, 'Batch freeze status retrieved');
+});

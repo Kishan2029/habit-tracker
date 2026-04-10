@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
+import { getBatchFreezeStatus } from '../../api/habitApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
 import { useToday } from '../../utils/useToday';
 import { useAuth } from '../../context/AuthContext';
@@ -34,6 +35,7 @@ export default function WeeklyView() {
   const [weekStart, setWeekStart] = useState(currentWeekStart);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [frozenMap, setFrozenMap] = useState(new Map()); // habitId -> Set<dateStr>
   const fetchIdRef = useRef(0);
   const navigate = useNavigate();
 
@@ -70,6 +72,23 @@ export default function WeeklyView() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch frozen dates for user's own habits (batch)
+  useEffect(() => {
+    if (!data?.habits?.length) return;
+    const ownHabits = data.habits.filter((h) => !h.isShared || h.myRole === 'owner');
+    if (ownHabits.length === 0) return;
+    const ids = ownHabits.map((h) => h._id);
+    getBatchFreezeStatus(ids)
+      .then(({ data: res }) => {
+        const map = new Map();
+        for (const [hid, status] of Object.entries(res.data)) {
+          map.set(hid, new Set(status.frozenDates || []));
+        }
+        setFrozenMap(map);
+      })
+      .catch(() => {});
+  }, [weekStart]);
 
   const handleToggle = useCallback(async (habitId, dateStr, currentValue, habit, delta = 1) => {
     // Block viewers from logging shared habits
@@ -208,6 +227,7 @@ export default function WeeklyView() {
                     const isCompleted = value
                       ? typeof value === 'boolean' ? value : value >= habit.target
                       : false;
+                    const isFrozen = frozenMap.get(habit._id)?.has(d);
 
                     if (!existsOnDate) {
                       return (
@@ -245,7 +265,10 @@ export default function WeeklyView() {
                     }
 
                     return (
-                      <td key={d} className="py-3 px-2 text-center">
+                      <td key={d} className="py-3 px-2 text-center relative">
+                        {isFrozen && (
+                          <span className="absolute top-1 right-1 text-[10px] text-blue-400" title="Frozen day">&#10052;</span>
+                        )}
                         {habit.type === 'boolean' ? (
                           <button
                             onClick={() => handleToggle(habit._id, d, value, habit)}

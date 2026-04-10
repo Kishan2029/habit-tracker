@@ -63,6 +63,30 @@ class StreakFreezeService {
   }
 
   /**
+   * Batch freeze status for multiple habits (single user).
+   * Returns Map<habitId, { frozenDates: string[] }>.
+   */
+  async getBatchFreezeStatus(userId, habitIds) {
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - 365);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const freezes = await StreakFreeze.find({
+      userId,
+      habitId: { $in: habitIds },
+      date: { $gte: cutoffStr },
+    });
+    const map = {};
+    for (const hid of habitIds) {
+      map[hid.toString()] = { frozenDates: [] };
+    }
+    for (const f of freezes) {
+      const hid = f.habitId.toString();
+      if (map[hid]) map[hid].frozenDates.push(f.date);
+    }
+    return map;
+  }
+
+  /**
    * Batch fetch frozen dates for multiple users on a single habit.
    * Returns Map<userId, Set<dateStr>>.
    */
