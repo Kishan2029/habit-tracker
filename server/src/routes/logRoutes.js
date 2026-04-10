@@ -406,6 +406,25 @@ router.get('/shared/:habitId/progress', getMembersProgress);
  *     responses:
  *       200:
  *         description: Leaderboard retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Leaderboard retrieved
+ *                 data:
+ *                   type: object
+ *       400:
+ *         description: Invalid range parameter
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get('/shared/:habitId/leaderboard', getLeaderboard);
 
