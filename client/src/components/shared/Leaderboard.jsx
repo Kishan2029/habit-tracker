@@ -12,7 +12,7 @@ export default function Leaderboard({ habitId }) {
     setLoading(true);
     getLeaderboard(habitId, range)
       .then(({ data: res }) => setData(res.data))
-      .catch(() => setData(null))
+      .catch(() => { setData(null); import('react-hot-toast').then(({ default: t }) => t.error('Failed to load leaderboard')); })
       .finally(() => setLoading(false));
   }, [habitId, range]);
 

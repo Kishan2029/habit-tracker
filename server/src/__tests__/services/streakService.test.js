@@ -165,4 +165,100 @@ describe('StreakService', () => {
       expect(a.longestStreak).toBe(b.longestStreak);
     });
   });
+
+  describe('frozenDates', () => {
+    it('should preserve current streak across a frozen gap', () => {
+      // Completed days -4, -3, missed -2 (frozen), completed -1 and today
+      const dates = [
+        toDateString(addDays(today, -4)),
+        toDateString(addDays(today, -3)),
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const frozenDates = new Set([toDateString(addDays(today, -2))]);
+      const createdAt = addDays(today, -10);
+
+      const result = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        frozenDates,
+      });
+      // Current streak: today + day-1 + frozen day-2 + day-3 + day-4 = 4 completed
+      expect(result.currentStreak).toBe(4);
+      expect(result.longestStreak).toBe(4);
+    });
+
+    it('should not increment streak for frozen days (neutral)', () => {
+      // Only frozen days, no completions
+      const frozenDates = new Set([
+        toDateString(addDays(today, -2)),
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ]);
+      const createdAt = addDays(today, -5);
+
+      const result = streakService.calculateStreaks([], {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        frozenDates,
+      });
+      expect(result.currentStreak).toBe(0);
+      expect(result.longestStreak).toBe(0);
+    });
+
+    it('should preserve longest streak across frozen gap', () => {
+      // 3-day streak, then frozen day, then 2-day streak, then gap, then 1-day
+      const dates = [
+        toDateString(addDays(today, -8)),
+        toDateString(addDays(today, -7)),
+        toDateString(addDays(today, -6)),
+        // day -5 is frozen
+        toDateString(addDays(today, -4)),
+        toDateString(addDays(today, -3)),
+        // day -2 missed (not frozen)
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const frozenDates = new Set([toDateString(addDays(today, -5))]);
+      const createdAt = addDays(today, -10);
+
+      const result = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        frozenDates,
+      });
+      // Longest: days -8,-7,-6 + frozen -5 + days -4,-3 = 5 completed
+      expect(result.longestStreak).toBe(5);
+      // Current: only today (day -2 breaks it)
+      expect(result.currentStreak).toBe(1);
+    });
+
+    it('should work with empty frozenDates (backward compatible)', () => {
+      const dates = [
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const createdAt = addDays(today, -5);
+
+      const withEmpty = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        frozenDates: new Set(),
+      });
+      const withDefault = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+      });
+
+      expect(withEmpty.currentStreak).toBe(withDefault.currentStreak);
+      expect(withEmpty.longestStreak).toBe(withDefault.longestStreak);
+    });
+  });
 });

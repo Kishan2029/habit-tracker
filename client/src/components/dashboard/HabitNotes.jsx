@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const MAX_LENGTH = 500;
 
 export default function HabitNotes({ notes, onSave }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(notes || '');
+
+  // Sync text with parent when not editing (e.g. after silentRefresh)
+  useEffect(() => {
+    if (!editing) setText(notes || '');
+  }, [notes, editing]);
 
   const handleSave = () => {
     onSave(text.trim());

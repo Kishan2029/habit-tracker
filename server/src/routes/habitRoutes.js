@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { param } from 'express-validator';
+import { param, body } from 'express-validator';
 import authenticate from '../middleware/authenticate.js';
 import validate from '../middleware/validate.js';
 import { createHabitRules, updateHabitRules, reorderHabitRules } from '../validators/habitValidators.js';
@@ -467,7 +467,21 @@ router.delete('/:id', idParamRule, validate, deleteHabit);
  *       200:
  *         description: Day frozen successfully
  */
-router.post('/:id/freeze', idParamRule, validate, freezeDay);
+const freezeDateRule = [
+  body('date')
+    .isString()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('date must be a valid YYYY-MM-DD string')
+    .custom((value) => {
+      const d = new Date(`${value}T00:00:00.000Z`);
+      if (Number.isNaN(d.getTime())) throw new Error('date is not a valid calendar date');
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      if (d > today) throw new Error('Cannot freeze a future date');
+      return true;
+    }),
+];
+router.post('/:id/freeze', idParamRule, freezeDateRule, validate, freezeDay);
 
 /**
  * @swagger

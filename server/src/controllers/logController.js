@@ -41,7 +41,8 @@ export const getRangeLogs = catchAsync(async (req, res) => {
 export const getLeaderboard = catchAsync(async (req, res) => {
   const range = req.query.range || 'week';
   if (!['week', 'month'].includes(range)) throw new AppError('range must be "week" or "month"', 400);
-  const data = await logService.getLeaderboard(req.user._id, req.params.habitId, range);
+  const timezone = req.user.settings?.timezone || null;
+  const data = await logService.getLeaderboard(req.user._id, req.params.habitId, range, timezone);
   sendSuccess(res, data, 'Leaderboard retrieved');
 });
 

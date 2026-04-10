@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const handleFreezeToggle = async (enabled) => {
     setFreezeEnabled(enabled);
     try {
-      await updateProfile({ settings: { ...user.settings, streakFreeze: { enabled, allowedPerMonth: freezePerMonth } } });
+      await updateProfile({ settings: { streakFreeze: { enabled, allowedPerMonth: freezePerMonth } } });
       updateUser({ ...user, settings: { ...user.settings, streakFreeze: { enabled, allowedPerMonth: freezePerMonth } } });
     } catch {
       setFreezeEnabled(!enabled);
@@ -27,7 +27,7 @@ export default function SettingsPage() {
   const handleFreezeCountChange = async (count) => {
     setFreezePerMonth(count);
     try {
-      await updateProfile({ settings: { ...user.settings, streakFreeze: { enabled: freezeEnabled, allowedPerMonth: count } } });
+      await updateProfile({ settings: { streakFreeze: { enabled: freezeEnabled, allowedPerMonth: count } } });
       updateUser({ ...user, settings: { ...user.settings, streakFreeze: { enabled: freezeEnabled, allowedPerMonth: count } } });
     } catch {
       toast.error('Failed to update setting');
@@ -102,7 +102,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Freezes per month</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Maximum freeze days allowed each month</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Maximum freeze days per habit each month</p>
               </div>
               <select
                 value={freezePerMonth}
