@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getDailyLogs, createLog } from '../../api/logApi';
+import { freezeDay, getFreezeStatus } from '../../api/habitApi';
+import { useAuth } from '../../context/AuthContext';
 import DateNavigator from './DateNavigator';
 import DailyProgressBar from './DailyProgressBar';
 import BooleanToggle from './BooleanToggle';
@@ -19,13 +21,20 @@ import { CATEGORIES, getCategoryConfig } from '../../config/categories';
 import toast from 'react-hot-toast';
 
 export default function TodayView() {
+  const { user } = useAuth();
+  const freezeEnabled = user?.settings?.streakFreeze?.enabled;
   const today = useToday();
   const [date, setDate] = useState(today);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedHabit, setExpandedHabit] = useState(null);
   const [sharedInfoHabit, setSharedInfoHabit] = useState(null); // { habit, myRole }
-  const [collapsedCategories, setCollapsedCategories] = useState(new Set());
+  const [collapsedCategories, setCollapsedCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('collapsedCategories');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const prevCompleted = useRef(0);
   const fetchIdRef = useRef(0); // tracks latest fetch to prevent race conditions
   const userLoggedRef = useRef(false); // true only after user actively logs a habit
@@ -121,6 +130,7 @@ export default function TodayView() {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
       else next.add(category);
+      localStorage.setItem('collapsedCategories', JSON.stringify([...next]));
       return next;
     });
   };
@@ -136,6 +146,16 @@ export default function TodayView() {
       silentRefresh();
     } catch {
       toast.error('Failed to save note');
+    }
+  };
+
+  const handleFreeze = async (habitId) => {
+    try {
+      const { data: res } = await freezeDay(habitId, date);
+      toast.success(`Day frozen (${res.data.usedThisMonth}/${res.data.allowedPerMonth} used this month)`);
+      silentRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to freeze day');
     }
   };
 
@@ -208,8 +228,12 @@ export default function TodayView() {
             </button>
 
             {/* Habit Cards */}
-            {!collapsedCategories.has(group.value) && (
-              <div className="space-y-3">
+            <div
+              className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+              style={{ gridTemplateRows: collapsedCategories.has(group.value) ? '0fr' : '1fr' }}
+            >
+              <div className="overflow-hidden">
+              <div className="space-y-3 pt-0.5">
                 {group.entries.map(({ habit, log, isCompleted, isShared, sharedBy, myRole }) => (
                   <Card key={habit._id} className="p-4">
                     <div className="flex items-center justify-between">
@@ -233,6 +257,18 @@ export default function TodayView() {
                           </div>
                           <div className="flex items-center gap-2">
                             <StreakBadge current={habit.currentStreak} longest={habit.longestStreak} />
+                            {freezeEnabled && !isCompleted && date < today && (!isShared || myRole === 'owner') && (
+                              <button
+                                onClick={() => handleFreeze(habit._id)}
+                                className="text-xs text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 flex items-center gap-0.5 transition"
+                                title="Freeze this day to protect your streak"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                </svg>
+                                <span>Freeze</span>
+                              </button>
+                            )}
                             {isShared && (
                               <>
                                 <button
@@ -300,7 +336,8 @@ export default function TodayView() {
                   </Card>
                 ))}
               </div>
-            )}
+              </div>
+            </div>
           </div>
         ))}
       </div>

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const MAX_LENGTH = 500;
 
 export default function HabitNotes({ notes, onSave }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(notes || '');
+  const savedRef = useRef(false);
 
   // Sync text with parent when not editing (e.g. after silentRefresh)
   useEffect(() => {
@@ -12,19 +13,33 @@ export default function HabitNotes({ notes, onSave }) {
   }, [notes, editing]);
 
   const handleSave = () => {
-    onSave(text.trim());
+    if (text.trim() !== (notes || '').trim()) {
+      onSave(text.trim());
+    }
+    savedRef.current = true;
     setEditing(false);
   };
 
   const handleCancel = () => {
     setText(notes || '');
+    savedRef.current = true;
     setEditing(false);
+  };
+
+  const handleBlur = () => {
+    // Auto-save on blur (unless cancel/save was just clicked)
+    setTimeout(() => {
+      if (!savedRef.current) {
+        handleSave();
+      }
+      savedRef.current = false;
+    }, 100);
   };
 
   if (!editing) {
     return (
       <button
-        onClick={() => setEditing(true)}
+        onClick={() => { savedRef.current = false; setEditing(true); }}
         className="flex items-center gap-1 text-xs text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition mt-1"
         title={notes ? 'Edit note' : 'Add a note'}
       >
@@ -45,6 +60,7 @@ export default function HabitNotes({ notes, onSave }) {
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, MAX_LENGTH))}
+        onBlur={handleBlur}
         placeholder="Add a note about today's progress..."
         rows={2}
         className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
@@ -54,12 +70,14 @@ export default function HabitNotes({ notes, onSave }) {
         <span className="text-xs text-gray-400">{text.length}/{MAX_LENGTH}</span>
         <div className="flex gap-1.5">
           <button
+            onMouseDown={() => { savedRef.current = true; }}
             onClick={handleCancel}
             className="px-2 py-0.5 text-xs rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             Cancel
           </button>
           <button
+            onMouseDown={() => { savedRef.current = true; }}
             onClick={handleSave}
             className="px-2 py-0.5 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-700"
           >

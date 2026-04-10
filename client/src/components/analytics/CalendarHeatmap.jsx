@@ -12,7 +12,7 @@ function getColorClass(percentage) {
   return 'bg-green-500 dark:bg-green-500';
 }
 
-export default function CalendarHeatmap({ year, month, logs, habits, selectedHabitId }) {
+export default function CalendarHeatmap({ year, month, logs, habits, selectedHabitId, frozenDates = new Set() }) {
   const [tooltip, setTooltip] = useState(null);
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstDay = new Date(year, month - 1, 1).getDay();
@@ -91,6 +91,9 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
         }`}>
           {d}
         </span>
+        {frozenDates.has(dateStr) && (
+          <span className="absolute -top-0.5 -right-0.5 text-[9px]" title="Frozen day">&#10052;</span>
+        )}
       </div>
     );
   }
@@ -120,6 +123,9 @@ export default function CalendarHeatmap({ year, month, logs, habits, selectedHab
             {Math.round(dayData[tooltip.d].percentage * 100)}% completed
             {dayData[tooltip.d].total > 0 && ` (${dayData[tooltip.d].total} habit${dayData[tooltip.d].total > 1 ? 's' : ''})`}
           </div>
+          {frozenDates.has(dayData[tooltip.d].dateStr) && (
+            <div className="text-blue-300">&#10052; Streak frozen</div>
+          )}
         </div>
       )}
     </div>
