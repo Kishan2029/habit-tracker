@@ -7,7 +7,7 @@ import {
 } from "../utils/dateHelpers.js";
 
 class StreakService {
-  calculateStreaks(logs, frequency, target, habitCreatedAt, createdDate, timezone) {
+  calculateStreaks(logs, { frequency, target, habitCreatedAt, createdDate, timezone } = {}) {
     const completedSet = new Set();
 
     for (const log of logs) {

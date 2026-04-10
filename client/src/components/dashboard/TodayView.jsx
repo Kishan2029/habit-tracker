@@ -77,12 +77,11 @@ export default function TodayView() {
   }, [data]);
 
   const handleLog = async (habitId, value, event) => {
-    // Capture snapshot for rollback before the optimistic update
-    const prevData = data;
-
-    // Optimistic update — use functional form to avoid stale closure
+    // Capture snapshot inside updater so rollback reflects the true pre-update state
+    let snapshot;
     setData((prev) => {
       if (!prev) return prev;
+      snapshot = prev;
       const newHabits = prev.habits.map((entry) => {
         if (entry.habit._id !== habitId) return entry;
         const newLog = { ...(entry.log || {}), value };
@@ -103,7 +102,7 @@ export default function TodayView() {
       await createLog({ habitId, date, value });
       silentRefresh(); // sync streaks from server
     } catch (err) {
-      setData(prevData); // rollback on failure
+      setData(snapshot); // rollback to true pre-update state
       const msg = err.response?.data?.message || 'Failed to save log';
       console.error('Log error:', err.response?.data || err.message);
       toast.error(msg);

@@ -85,12 +85,11 @@ export default function WeeklyView() {
       if (newValue === currentValue) return; // no change
     }
 
-    // Capture snapshot for rollback before the optimistic update
-    const prevData = data;
-
-    // Optimistic update — use functional form to avoid stale closure
+    // Capture snapshot inside updater so rollback reflects the true pre-update state
+    let snapshot;
     setData((prev) => {
       if (!prev) return prev;
+      snapshot = prev;
       const existingIndex = prev.logs.findIndex(
         (log) => log.habitId === habitId && log.date.split('T')[0] === dateStr
       );
@@ -109,10 +108,10 @@ export default function WeeklyView() {
       await createLog({ habitId, date: dateStr, value: newValue });
       silentRefresh(); // sync from server
     } catch (err) {
-      setData(prevData); // rollback on failure
+      setData(snapshot); // rollback to true pre-update state
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  }, [data, silentRefresh]);
+  }, [silentRefresh]);
 
   const canGoPrev = !minWeekStart || shiftDate(weekStart, -7) >= minWeekStart;
   const canGoNext = weekStart < currentWeekStart;

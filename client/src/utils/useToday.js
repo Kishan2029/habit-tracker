@@ -7,18 +7,30 @@ import { getLocalDateString } from './dateUtils';
 export function useToday() {
   const [today, setToday] = useState(() => getLocalDateString());
 
+  // Re-check date when the tab regains focus (handles sleep/background throttling)
   useEffect(() => {
-    // Calculate ms until next local midnight
+    const check = () => {
+      if (document.visibilityState === 'visible') {
+        const now = getLocalDateString();
+        if (now !== today) setToday(now);
+      }
+    };
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, [today]);
+
+  // Belt-and-suspenders: also schedule a timeout for midnight
+  useEffect(() => {
     const now = new Date();
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const msUntilMidnight = midnight - now;
 
     const timer = setTimeout(() => {
       setToday(getLocalDateString());
-    }, msUntilMidnight + 500); // small buffer to ensure we're past midnight
+    }, msUntilMidnight + 500);
 
     return () => clearTimeout(timer);
-  }, [today]); // re-schedule whenever today changes
+  }, [today]);
 
   return today;
 }

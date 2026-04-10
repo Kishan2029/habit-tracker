@@ -469,5 +469,33 @@ describe('LogService', () => {
       expect(result.monthlyStats[0].completedLogs).toBe(1);
       expect(result.logs).toHaveLength(1);
     });
+
+    it('should count partial count-habit logs as incomplete', async () => {
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'Push-ups', target: 5 }]);
+      HabitLog.find.mockResolvedValue([
+        { habitId: 'h1', value: 3, date: new Date('2025-03-10') },
+        { habitId: 'h1', value: 5, date: new Date('2025-03-15') },
+      ]);
+
+      const result = await logService.getYearlyLogs('user1', 2025);
+
+      expect(result.monthlyStats).toHaveLength(1);
+      expect(result.monthlyStats[0]._id.month).toBe(3);
+      expect(result.monthlyStats[0].totalLogs).toBe(2);
+      expect(result.monthlyStats[0].completedLogs).toBe(1); // only value=5 meets target=5
+    });
+
+    it('should handle undefined target with ?? 1 fallback', async () => {
+      Habit.find.mockResolvedValue([{ _id: 'h1', name: 'No-target' }]);
+      HabitLog.find.mockResolvedValue([
+        { habitId: 'h1', value: 1, date: new Date('2025-06-01') },
+      ]);
+
+      const result = await logService.getYearlyLogs('user1', 2025);
+
+      expect(result.monthlyStats).toHaveLength(1);
+      // value 1 >= (undefined ?? 1) = 1, so it should count as completed
+      expect(result.monthlyStats[0].completedLogs).toBe(1);
+    });
   });
 });

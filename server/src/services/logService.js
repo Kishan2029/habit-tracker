@@ -53,11 +53,6 @@ class LogService {
     return [...new Set(logs.map((log) => log.habitId.toString()))];
   }
 
-  async _getUserTimezone(userId) {
-    const user = await User.findById(userId, 'settings');
-    return user?.settings?.timezone || null;
-  }
-
   _serializeHabit(habit, streakOverride = null) {
     const habitData = typeof habit.toObject === 'function' ? habit.toObject() : { ...habit };
 
@@ -90,21 +85,20 @@ class LogService {
     const streakMap = new Map();
     for (const habit of sharedHabits) {
       const habitLogs = logsByHabit.get(habit._id.toString()) || [];
-      const streaks = streakService.calculateStreaks(
-        habitLogs,
-        habit.frequency,
-        habit.target,
-        habit.createdAt,
-        habit.createdDate,
-        timezone
-      );
+      const streaks = streakService.calculateStreaks(habitLogs, {
+        frequency: habit.frequency,
+        target: habit.target,
+        habitCreatedAt: habit.createdAt,
+        createdDate: habit.createdDate,
+        timezone,
+      });
       streakMap.set(habit._id.toString(), streaks);
     }
 
     return streakMap;
   }
 
-  async createOrUpdate(userId, { habitId, date, value, notes }) {
+  async createOrUpdate(userId, { habitId, date, value, notes }, timezone) {
     if (!habitId || !date) {
       throw new AppError('habitId and date are required', 400);
     }
@@ -154,7 +148,6 @@ class LogService {
     // Don't let streak calculation errors fail the whole request
     let streaks = null;
     try {
-      const timezone = await this._getUserTimezone(userId);
       streaks = await this.updateStreaks(habit, userId, timezone);
     } catch (err) {
       console.error('Streak update failed:', err.message);
@@ -170,14 +163,13 @@ class LogService {
     // For shared habits, calculate streaks per-user
     const query = userId ? { habitId: habit._id, userId } : { habitId: habit._id };
     const logs = await HabitLog.find(query).sort({ date: 1 });
-    const { currentStreak, longestStreak } = streakService.calculateStreaks(
-      logs,
-      habit.frequency,
-      habit.target,
-      habit.createdAt,
-      habit.createdDate,
-      timezone
-    );
+    const { currentStreak, longestStreak } = streakService.calculateStreaks(logs, {
+      frequency: habit.frequency,
+      target: habit.target,
+      habitCreatedAt: habit.createdAt,
+      createdDate: habit.createdDate,
+      timezone,
+    });
 
     // Only update habit-level streaks for the owner
     if (!userId || habit.userId.toString() === userId.toString()) {
@@ -191,7 +183,13 @@ class LogService {
 
   async getUserStreakForHabit(userId, habit, timezone) {
     const logs = await HabitLog.find({ habitId: habit._id, userId }).sort({ date: 1 });
-    return streakService.calculateStreaks(logs, habit.frequency, habit.target, habit.createdAt, habit.createdDate, timezone);
+    return streakService.calculateStreaks(logs, {
+      frequency: habit.frequency,
+      target: habit.target,
+      habitCreatedAt: habit.createdAt,
+      createdDate: habit.createdDate,
+      timezone,
+    });
   }
 
   async _sendLogNotifications(userId, habit, value, isNew, streaks) {
@@ -265,15 +263,14 @@ class LogService {
     }
   }
 
-  async getDailyLogs(userId, dateString) {
+  async getDailyLogs(userId, dateString, timezone) {
     const date = toUTCMidnight(dateString);
     const dayOfWeek = getDayOfWeek(date);
 
-    // Phase 1: Parallel — fetch logs, own habits, shared entries, and user timezone
-    const [logs, sharedEntries, timezone] = await Promise.all([
+    // Phase 1: Parallel — fetch logs and shared entries
+    const [logs, sharedEntries] = await Promise.all([
       HabitLog.find({ userId, date }),
       sharedHabitService.getSharedHabitIdsForUser(userId),
-      this._getUserTimezone(userId),
     ]);
 
     const loggedHabitIds = this._getLoggedHabitIds(logs);
@@ -373,7 +370,7 @@ class LogService {
     };
   }
 
-  async getRangeLogs(userId, startDate, endDate) {
+  async getRangeLogs(userId, startDate, endDate, timezone) {
     const start = toUTCMidnight(startDate);
     const end = toUTCMidnight(endDate);
 
@@ -381,10 +378,7 @@ class LogService {
       throw new AppError('Start date must be before or equal to end date', 400);
     }
 
-    const [logs, timezone] = await Promise.all([
-      HabitLog.find({ userId, date: { $gte: start, $lte: end } }),
-      this._getUserTimezone(userId),
-    ]);
+    const logs = await HabitLog.find({ userId, date: { $gte: start, $lte: end } });
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     // Own habits
@@ -452,14 +446,11 @@ class LogService {
     return { startDate, endDate, habits: allHabits, logs };
   }
 
-  async getMonthlyLogs(userId, month, year) {
+  async getMonthlyLogs(userId, month, year, timezone) {
     const startDate = getStartOfMonth(year, month);
     const endDate = getEndOfMonth(year, month);
     const endDateStr = toDateString(endDate);
-    const [logs, timezone] = await Promise.all([
-      HabitLog.find({ userId, date: { $gte: startDate, $lte: endDate } }),
-      this._getUserTimezone(userId),
-    ]);
+    const logs = await HabitLog.find({ userId, date: { $gte: startDate, $lte: endDate } });
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     const ownHabits = await Habit.find(
@@ -524,14 +515,11 @@ class LogService {
     return { month, year, habits, logs };
   }
 
-  async getYearlyLogs(userId, year) {
+  async getYearlyLogs(userId, year, timezone) {
     const startDate = getStartOfYear(year);
     const endDate = getEndOfYear(year);
     const endDateStr = toDateString(endDate);
-    const [logs, timezone] = await Promise.all([
-      HabitLog.find({ userId, date: { $gte: startDate, $lte: endDate } }),
-      this._getUserTimezone(userId),
-    ]);
+    const logs = await HabitLog.find({ userId, date: { $gte: startDate, $lte: endDate } });
     const loggedHabitIds = this._getLoggedHabitIds(logs);
 
     const ownHabits = await Habit.find(
@@ -613,7 +601,7 @@ class LogService {
       if (habit) {
         const done = typeof log.value === 'boolean'
           ? log.value === true
-          : log.value >= habit.target;
+          : log.value >= (habit.target ?? 1);
         if (done) bucket.completedLogs++;
       }
     }

@@ -590,6 +590,21 @@ describe('SharedHabitService', () => {
       expect(shared.sharedWith).toHaveLength(0);
       expect(result.message).toBe('Left shared habit');
     });
+
+    it('should invalidate cache for both the member and the owner', async () => {
+      const shared = createMockShared({
+        sharedWith: [
+          { userId: { _id: 'u2', toString: () => 'u2' }, role: 'member', status: 'accepted' },
+        ],
+      });
+      SharedHabit.findOne.mockResolvedValue(shared);
+
+      await sharedHabitService.leaveSharedHabit('u2', 'h1');
+
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:u2');
+      expect(cache.delByPrefix).toHaveBeenCalledWith('habits:owner1');
+      expect(cache.delByPrefix).toHaveBeenCalledTimes(2);
+    });
   });
 
   // ─── updateMemberRole ──────────────────────────────────────────
