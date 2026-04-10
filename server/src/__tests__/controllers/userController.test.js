@@ -4,11 +4,12 @@ jest.unstable_mockModule('../../services/userService.js', () => ({
   default: {
     getProfile: jest.fn(),
     updateProfile: jest.fn(),
+    uploadAvatar: jest.fn(),
   },
 }));
 
 const { default: userService } = await import('../../services/userService.js');
-const { getProfile, updateProfile } = await import('../../controllers/userController.js');
+const { getProfile, updateProfile, uploadAvatar } = await import('../../controllers/userController.js');
 
 const createMockRes = () => {
   const res = {};
@@ -73,6 +74,34 @@ describe('UserController', () => {
           data: { user: mockUser },
           message: 'Profile updated',
         })
+      );
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    it('should upload avatar and return updated user', async () => {
+      const mockUser = { _id: 'u1', avatar: 'https://example.com/avatar.jpg' };
+      userService.uploadAvatar.mockResolvedValue(mockUser);
+
+      const req = { user: { _id: 'u1' }, file: { buffer: Buffer.from('image-data') } };
+      await uploadAvatar(req, res, next);
+
+      expect(userService.uploadAvatar).toHaveBeenCalledWith('u1', req.file.buffer);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: 'Avatar updated',
+          data: { user: mockUser },
+        })
+      );
+    });
+
+    it('should throw error when no file is provided', async () => {
+      const req = { user: { _id: 'u1' } };
+      await uploadAvatar(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: 400 })
       );
     });
   });
