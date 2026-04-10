@@ -129,7 +129,7 @@ export default function NotificationToggle() {
 
   const handleNotificationToggle = (typeKey, channel, newValue) => {
     if (channel === 'email' && !emailVerified && newValue) {
-      setShowVerifyModal(true);
+      toast.error('Please verify your email first using the "Verify Email" button above');
       return;
     }
     savePreference(`notifications.${typeKey}.${channel}`, newValue);
@@ -222,7 +222,7 @@ export default function NotificationToggle() {
                         small
                         enabled={emailOn}
                         onChange={(val) => handleNotificationToggle(type.key, 'email', val)}
-                        disabled={saving}
+                        disabled={saving || !emailVerified}
                       />
                     </div>
                   )}

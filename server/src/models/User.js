@@ -85,6 +85,10 @@ const userSchema = new mongoose.Schema(
         type: String,
         default: '08:00',
       },
+      streakFreeze: {
+        enabled: { type: Boolean, default: false },
+        allowedPerMonth: { type: Number, default: 2, min: 0, max: 5 },
+      },
     },
     avatar: {
       url: { type: String, default: '' },

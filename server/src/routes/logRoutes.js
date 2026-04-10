@@ -15,6 +15,7 @@ import {
   getYearlyLogs,
   getRangeLogs,
   getMembersProgress,
+  getLeaderboard,
 } from '../controllers/logController.js';
 
 const router = Router();
@@ -379,5 +380,33 @@ router.get('/range', rangeQueryRules, validate, getRangeLogs);
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/shared/:habitId/progress', getMembersProgress);
+
+/**
+ * @swagger
+ * /logs/shared/{habitId}/leaderboard:
+ *   get:
+ *     summary: Get leaderboard for a shared habit
+ *     tags: [Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: habitId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Shared habit ID
+ *       - in: query
+ *         name: range
+ *         schema:
+ *           type: string
+ *           enum: [week, month]
+ *           default: week
+ *         description: Time range for leaderboard
+ *     responses:
+ *       200:
+ *         description: Leaderboard retrieved
+ */
+router.get('/shared/:habitId/leaderboard', getLeaderboard);
 
 export default router;

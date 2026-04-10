@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getMonthlyLogs } from '../../api/logApi';
+import { getFreezeStatus } from '../../api/habitApi';
 import { useAuth } from '../../context/AuthContext';
 import { getLocalDateString } from '../../utils/dateUtils';
 import CalendarHeatmap from './CalendarHeatmap';
@@ -26,6 +27,7 @@ export default function MonthlyAnalytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedHabit, setSelectedHabit] = useState('');
+  const [frozenDates, setFrozenDates] = useState(new Set());
   const fetchIdRef = useRef(0);
 
   useEffect(() => {
@@ -46,6 +48,14 @@ export default function MonthlyAnalytics() {
     };
     fetchData();
   }, [month, year]);
+
+  // Fetch frozen dates when a habit is selected
+  useEffect(() => {
+    if (!selectedHabit) { setFrozenDates(new Set()); return; }
+    getFreezeStatus(selectedHabit)
+      .then(({ data: res }) => setFrozenDates(new Set(res.data.frozenDates || [])))
+      .catch(() => setFrozenDates(new Set()));
+  }, [selectedHabit]);
 
   const canGoBack = minYear != null
     ? year > minYear || (year === minYear && month > minMonth)
@@ -138,6 +148,7 @@ export default function MonthlyAnalytics() {
           logs={data.logs}
           habits={data.habits}
           selectedHabitId={selectedHabit}
+          frozenDates={frozenDates}
         />
       </Card>
 

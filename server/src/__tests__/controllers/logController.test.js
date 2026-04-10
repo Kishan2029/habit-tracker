@@ -75,7 +75,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { date: '2025-01-01' } };
       await getDailyLogs(req, res, next);
 
-      expect(logService.getDailyLogs).toHaveBeenCalledWith('u1', '2025-01-01');
+      expect(logService.getDailyLogs).toHaveBeenCalledWith('u1', '2025-01-01', null);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ data })
       );
@@ -97,7 +97,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { month: '6', year: '2025' } };
       await getMonthlyLogs(req, res, next);
 
-      expect(logService.getMonthlyLogs).toHaveBeenCalledWith('u1', 6, 2025);
+      expect(logService.getMonthlyLogs).toHaveBeenCalledWith('u1', 6, 2025, null);
     });
   });
 
@@ -116,7 +116,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { year: '2025' } };
       await getYearlyLogs(req, res, next);
 
-      expect(logService.getYearlyLogs).toHaveBeenCalledWith('u1', 2025);
+      expect(logService.getYearlyLogs).toHaveBeenCalledWith('u1', 2025, null);
     });
   });
 
@@ -127,7 +127,7 @@ describe('LogController', () => {
       const req = { user: { _id: 'u1' }, query: { start: '2025-01-01', end: '2025-01-31' } };
       await getRangeLogs(req, res, next);
 
-      expect(logService.getRangeLogs).toHaveBeenCalledWith('u1', '2025-01-01', '2025-01-31');
+      expect(logService.getRangeLogs).toHaveBeenCalledWith('u1', '2025-01-01', '2025-01-31', null);
     });
   });
 });
