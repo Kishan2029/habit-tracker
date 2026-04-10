@@ -12,14 +12,14 @@ describe('StreakService', () => {
   describe('calculateStreaks', () => {
     it('should return 0/0 for empty logs', () => {
       const createdAt = addDays(today, -10);
-      const result = streakService.calculateStreaks([], allDays, 1, createdAt);
+      const result = streakService.calculateStreaks([], { frequency: allDays, target: 1, habitCreatedAt: createdAt });
       expect(result.currentStreak).toBe(0);
       expect(result.longestStreak).toBe(0);
     });
 
     it('should return 0/0 when habit was created in the future', () => {
       const futureDate = addDays(today, 5);
-      const result = streakService.calculateStreaks([], allDays, 1, futureDate);
+      const result = streakService.calculateStreaks([], { frequency: allDays, target: 1, habitCreatedAt: futureDate });
       expect(result.currentStreak).toBe(0);
       expect(result.longestStreak).toBe(0);
     });
@@ -32,7 +32,7 @@ describe('StreakService', () => {
       const logs = makeLogs(dates);
       const createdAt = addDays(today, -10);
 
-      const result = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      const result = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt });
       expect(result.currentStreak).toBe(5);
     });
 
@@ -49,7 +49,7 @@ describe('StreakService', () => {
       const logs = makeLogs([...oldStreak, ...newStreak]);
       const createdAt = addDays(today, -15);
 
-      const result = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      const result = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt });
       expect(result.longestStreak).toBe(7);
       expect(result.currentStreak).toBe(2);
     });
@@ -70,7 +70,7 @@ describe('StreakService', () => {
       }
       const logs = makeLogs(dates);
 
-      const result = streakService.calculateStreaks(logs, frequency, 1, createdAt);
+      const result = streakService.calculateStreaks(logs, { frequency, target: 1, habitCreatedAt: createdAt });
       expect(result.currentStreak).toBe(dates.length);
       expect(result.longestStreak).toBe(dates.length);
     });
@@ -89,7 +89,7 @@ describe('StreakService', () => {
       ];
       const createdAt = addDays(today, -5);
 
-      const result = streakService.calculateStreaks(logs, allDays, 5, createdAt);
+      const result = streakService.calculateStreaks(logs, { frequency: allDays, target: 5, habitCreatedAt: createdAt });
       expect(result.currentStreak).toBe(1); // Only today
       expect(result.longestStreak).toBe(1);
     });
@@ -100,7 +100,7 @@ describe('StreakService', () => {
       ];
       const createdAt = addDays(today, -3);
 
-      const result = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      const result = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt });
       expect(result.currentStreak).toBe(0);
     });
 
@@ -112,7 +112,7 @@ describe('StreakService', () => {
       const logs = makeLogs(dates);
       const createdAt = addDays(today, -5);
 
-      const result = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      const result = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt });
       // Today is scheduled but not completed — should be skipped; streak is 2 (days -2, -1)
       expect(result.currentStreak).toBe(2);
       expect(result.longestStreak).toBe(2);
@@ -121,7 +121,7 @@ describe('StreakService', () => {
     it('should return 0/0 when no scheduled dates exist', () => {
       // Frequency is empty
       const createdAt = addDays(today, -5);
-      const result = streakService.calculateStreaks([], [], 1, createdAt);
+      const result = streakService.calculateStreaks([], { frequency: [], target: 1, habitCreatedAt: createdAt });
       expect(result.currentStreak).toBe(0);
       expect(result.longestStreak).toBe(0);
     });
@@ -138,8 +138,8 @@ describe('StreakService', () => {
       }
       const logs = makeLogs(dates);
 
-      const withCreatedDate = streakService.calculateStreaks(logs, allDays, 1, createdAt, createdDate);
-      const withoutCreatedDate = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      const withCreatedDate = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt, createdDate });
+      const withoutCreatedDate = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt });
 
       // With createdDate (5 days ago), streak should count from day -4
       expect(withCreatedDate.currentStreak).toBe(5);
@@ -158,8 +158,8 @@ describe('StreakService', () => {
       }
       const logs = makeLogs(dates);
 
-      const a = streakService.calculateStreaks(logs, allDays, 1, createdAt, createdDate);
-      const b = streakService.calculateStreaks(logs, allDays, 1, createdAt);
+      const a = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt, createdDate });
+      const b = streakService.calculateStreaks(logs, { frequency: allDays, target: 1, habitCreatedAt: createdAt });
 
       expect(a.currentStreak).toBe(b.currentStreak);
       expect(a.longestStreak).toBe(b.longestStreak);

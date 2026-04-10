@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDailyLogs } from '../../api/logApi';
 import { getLocalDateString } from '../../utils/dateUtils';
+import { useToday } from '../../utils/useToday';
 import { useAuth } from '../../context/AuthContext';
 import DateNavigator from '../dashboard/DateNavigator';
 import Card from '../ui/Card';
@@ -33,7 +34,7 @@ function CompletionRing({ percentage }) {
 
 export default function DailyAnalytics() {
   const { user } = useAuth();
-  const today = getLocalDateString();
+  const today = useToday();
   const accountCreated = user?.createdAt ? getLocalDateString(new Date(user.createdAt)) : null;
   const [date, setDate] = useState(today);
   const [data, setData] = useState(null);
@@ -82,7 +83,7 @@ export default function DailyAnalytics() {
     if (typeof log.value === 'boolean') {
       proportionalCompleted += log.value ? 1 : 0;
     } else {
-      const target = entry.habit?.target || 1;
+      const target = entry.habit?.target ?? 1;
       proportionalCompleted += Math.min(1, (log.value || 0) / target);
     }
   }
@@ -108,7 +109,7 @@ export default function DailyAnalytics() {
           const { habit, log, isCompleted } = entry;
           if (!habit) return null;
           const value = log?.value ?? 0;
-          const target = habit.target || 1;
+          const target = habit.target ?? 1;
           const progress = habit.type === 'boolean'
             ? (isCompleted ? 100 : 0)
             : Math.min(100, Math.round(((typeof value === 'number' ? value : 0) / target) * 100));

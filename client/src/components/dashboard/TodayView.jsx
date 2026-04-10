@@ -13,11 +13,11 @@ import SharedBadge from '../ui/SharedBadge';
 import MemberProgressList from '../shared/MemberProgressList';
 import ShareHabitModal from '../habits/ShareHabitModal';
 import { useNavigate } from 'react-router-dom';
-import { getLocalDateString } from '../../utils/dateUtils';
+import { useToday } from '../../utils/useToday';
 import toast from 'react-hot-toast';
 
 export default function TodayView() {
-  const today = getLocalDateString();
+  const today = useToday();
   const [date, setDate] = useState(today);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -77,18 +77,21 @@ export default function TodayView() {
   }, [data]);
 
   const handleLog = async (habitId, value, event) => {
-    const prevData = data;
-
-    // Optimistic update — reflect change instantly
-    const newHabits = data.habits.map((entry) => {
-      if (entry.habit._id !== habitId) return entry;
-      const newLog = { ...(entry.log || {}), value };
-      const newIsCompleted =
-        entry.habit.type === 'boolean' ? !!value : value >= entry.habit.target;
-      return { ...entry, log: newLog, isCompleted: newIsCompleted };
+    // Capture snapshot inside updater so rollback reflects the true pre-update state
+    let snapshot;
+    setData((prev) => {
+      if (!prev) return prev;
+      snapshot = prev;
+      const newHabits = prev.habits.map((entry) => {
+        if (entry.habit._id !== habitId) return entry;
+        const newLog = { ...(entry.log || {}), value };
+        const newIsCompleted =
+          entry.habit.type === 'boolean' ? !!value : value >= entry.habit.target;
+        return { ...entry, log: newLog, isCompleted: newIsCompleted };
+      });
+      const newCompleted = newHabits.filter((h) => h.isCompleted).length;
+      return { ...prev, habits: newHabits, completed: newCompleted };
     });
-    const newCompleted = newHabits.filter((h) => h.isCompleted).length;
-    setData({ ...data, habits: newHabits, completed: newCompleted });
 
     userLoggedRef.current = true;
     if (event && value === true) {
@@ -99,7 +102,7 @@ export default function TodayView() {
       await createLog({ habitId, date, value });
       silentRefresh(); // sync streaks from server
     } catch (err) {
-      setData(prevData); // rollback on failure
+      setData(snapshot); // rollback to true pre-update state
       const msg = err.response?.data?.message || 'Failed to save log';
       console.error('Log error:', err.response?.data || err.message);
       toast.error(msg);

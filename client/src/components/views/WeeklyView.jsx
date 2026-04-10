@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRangeLogs, createLog } from '../../api/logApi';
 import { getLocalDateString, shiftDate, parseLocalDate } from '../../utils/dateUtils';
+import { useToday } from '../../utils/useToday';
 import { useAuth } from '../../context/AuthContext';
 import { getCategoryConfig } from '../../config/categories';
 import { getHabitCreatedDateString, wasHabitCreatedOnOrBefore } from '../../utils/habitDateUtils';
@@ -26,7 +27,7 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function WeeklyView() {
   const { user } = useAuth();
-  const today = getLocalDateString();
+  const today = useToday();
   const accountCreated = user?.createdAt ? getLocalDateString(new Date(user.createdAt)) : null;
   const currentWeekStart = getWeekStart(today);
   const minWeekStart = accountCreated ? getWeekStart(accountCreated) : null;
@@ -84,30 +85,33 @@ export default function WeeklyView() {
       if (newValue === currentValue) return; // no change
     }
 
-    const prevData = data;
-
-    // Optimistic update — reflect change instantly in the logs array
-    const existingIndex = data.logs.findIndex(
-      (log) => log.habitId === habitId && log.date.split('T')[0] === dateStr
-    );
-    let newLogs;
-    if (existingIndex >= 0) {
-      newLogs = data.logs.map((log, i) =>
-        i === existingIndex ? { ...log, value: newValue } : log
+    // Capture snapshot inside updater so rollback reflects the true pre-update state
+    let snapshot;
+    setData((prev) => {
+      if (!prev) return prev;
+      snapshot = prev;
+      const existingIndex = prev.logs.findIndex(
+        (log) => log.habitId === habitId && log.date.split('T')[0] === dateStr
       );
-    } else {
-      newLogs = [...data.logs, { habitId, date: dateStr, value: newValue }];
-    }
-    setData({ ...data, logs: newLogs });
+      let newLogs;
+      if (existingIndex >= 0) {
+        newLogs = prev.logs.map((log, i) =>
+          i === existingIndex ? { ...log, value: newValue } : log
+        );
+      } else {
+        newLogs = [...prev.logs, { habitId, date: dateStr, value: newValue }];
+      }
+      return { ...prev, logs: newLogs };
+    });
 
     try {
       await createLog({ habitId, date: dateStr, value: newValue });
       silentRefresh(); // sync from server
     } catch (err) {
-      setData(prevData); // rollback on failure
+      setData(snapshot); // rollback to true pre-update state
       toast.error(err.response?.data?.message || 'Failed to save');
     }
-  }, [data, silentRefresh]);
+  }, [silentRefresh]);
 
   const canGoPrev = !minWeekStart || shiftDate(weekStart, -7) >= minWeekStart;
   const canGoNext = weekStart < currentWeekStart;
