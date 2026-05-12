@@ -86,5 +86,10 @@ No top-level test or lint script — server tests live in the server workspace, 
 - Frontend rules → `client/CLAUDE.md`
 - Backend rules → `server/CLAUDE.md`
 - Feature surface area, product copy → `README.md`
-- Architecture diagrams, data models, request lifecycle → `TECHNICAL.md`
+- Architecture, request lifecycle, services, deployment → `docs/ARCHITECTURE.md`
+- Mongoose schemas, fields, indexes, relationships → `docs/DATA_MODELS.md`
+- Test setup, ESM mocking, coverage thresholds → `docs/TESTING.md`
+- Why we made structural choices (ADRs) → `docs/decisions/`
+- Booby traps to avoid → `GOTCHAS.md`
+- Old single-file deep dive (now a TOC) → `TECHNICAL.md`
 - Live API reference → `/api-docs` (Swagger, dev only)
