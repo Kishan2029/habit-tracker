@@ -29,7 +29,15 @@ Naming convention for branches: `feat/<slug>` for new features, `fix/<slug>` for
 
 ## Phase 1 — Frame (5–10 min)
 
-Write down three things in plain English **before opening any code**:
+First, **check the backlog**. `docs/FEATURE_IDEAS.md` may already have this feature with rough scope, tradeoffs, and dependencies noted. If it's there:
+
+- Update its status to `Planned` (or `In progress` when you actually start coding).
+- Lift the `Surface` and `Tradeoffs` sections into your design notes — they're a head start, not a constraint.
+- If the framing has evolved since the entry was written, edit it.
+
+If it's not there, that's fine — but consider adding it to the backlog as you frame, so the next person (or session) benefits.
+
+Then write down three things in plain English **before opening any code**:
 
 1. **What** the feature does — one sentence.
 2. **Why** — the user problem it solves, also one sentence.
@@ -190,6 +198,7 @@ Phase 6: Merge + observe — feature → dev → main, then watch signals
 
 ## Pointers
 
+- Candidate features and backlog: `docs/FEATURE_IDEAS.md`
 - Layered backend rules: `server/CLAUDE.md`
 - Frontend rules: `client/CLAUDE.md`
 - Data model reference: `docs/DATA_MODELS.md`

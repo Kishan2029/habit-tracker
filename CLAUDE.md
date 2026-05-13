@@ -102,6 +102,7 @@ Never push directly to `dev` or `main`. Never open a PR from a feature branch to
 ## Pointers
 
 - Feature development flow (all six phases) → `FEATURE_FLOW.md`
+- Candidate features / backlog → `docs/FEATURE_IDEAS.md`
 - Frontend rules → `client/CLAUDE.md`
 - Backend rules → `server/CLAUDE.md`
 - Feature surface area, product copy → `README.md`
