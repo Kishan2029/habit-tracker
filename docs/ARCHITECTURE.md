@@ -420,9 +420,23 @@ Server uses `sendSuccess` / `sendError` from `server/src/utils/responseFormatter
 
 ## 11. Deployment
 
+### Environments and branches
+
+| Branch | Environment | Purpose |
+|--------|-------------|---------|
+| `dev` | dev-staging | Integration target for every feature branch. All work lands here first. |
+| `main` | production | Production. Only updated by merging `dev` into `main` — never by feature branches directly. |
+
+Release flow: `feat/<slug>` → PR to `dev` → merge → bake on dev-staging → PR `dev → main` → merge → production. Hotfix flow: branch from `main`, PR to `main`, then immediately back-merge `main` into `dev` to prevent divergence. Full details in `FEATURE_FLOW.md`.
+
 ### Vercel
 
-Both client and server deploy on Vercel.
+Both client and server deploy on Vercel. Each branch points to a Vercel target:
+- `main` branch → production deployment
+- `dev` branch → preview / staging deployment (the dev-staging environment)
+- Feature branches → ephemeral preview URLs per push
+
+Environment variables are configured per-target in the Vercel dashboard; the two long-lived branches have separate values for `MONGODB_URI`, `CORS_ORIGIN`, `CLIENT_URL`, and any other env that differs between staging and production.
 
 Client `vercel.json`:
 ```json

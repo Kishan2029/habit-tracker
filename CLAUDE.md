@@ -40,6 +40,23 @@ Run from the repo root unless noted.
 
 No top-level test or lint script — server tests live in the server workspace, client lint lives in the client workspace.
 
+## Branching & environments
+
+Two long-lived branches, each mapped to an environment:
+
+| Branch | Environment | How it's updated |
+|--------|-------------|------------------|
+| `dev` | dev-staging | Merge feature branches into `dev` via PR |
+| `main` | production | Merge `dev` into `main` via PR — **never** merge feature branches directly into `main` |
+
+Feature flow:
+
+1. Branch off `dev`: `git checkout dev && git pull && git checkout -b feat/<slug>`
+2. Open the PR against `dev`. Wait for review + green CI.
+3. After it lands on `dev` and bakes on dev-staging, a separate `dev → main` PR ships it to production.
+
+Never push directly to `dev` or `main`. Never open a PR from a feature branch to `main`. If you need to hotfix production, branch from `main`, fix, PR to `main`, and **immediately** back-merge `main` into `dev` to keep them in sync.
+
 ## Environment files
 
 - `server/.env.development` — local dev (Mongo, JWT, email provider, Cloudinary, VAPID)
@@ -69,6 +86,7 @@ No top-level test or lint script — server tests live in the server workspace, 
 
 ## Where things live
 
+- **Starting a feature?** → read `FEATURE_FLOW.md` first. It defines the six-phase flow (frame → design → scaffold → verify → context update → merge) and is the single source of truth for how features get built in this repo.
 - New backend feature → see `server/CLAUDE.md`. Path: model → validator → service → controller → route → register in `server/src/routes/index.js` → Swagger annotation → test.
 - New frontend feature → see `client/CLAUDE.md`. Path: `api/*.js` module → component(s) under the right `components/<domain>/` folder → route in `App.jsx` if it's a page.
 
@@ -83,6 +101,7 @@ No top-level test or lint script — server tests live in the server workspace, 
 
 ## Pointers
 
+- Feature development flow (all six phases) → `FEATURE_FLOW.md`
 - Frontend rules → `client/CLAUDE.md`
 - Backend rules → `server/CLAUDE.md`
 - Feature surface area, product copy → `README.md`

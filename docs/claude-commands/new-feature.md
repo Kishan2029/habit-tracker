@@ -8,6 +8,20 @@ Feature name / resource: **$ARGUMENTS**
 
 If `$ARGUMENTS` is empty, ask the user for the resource name (singular, camelCase, e.g. `streakReward`) before proceeding.
 
+## Branch setup (phase 0)
+
+Before writing any code, confirm you're on a feature branch off `dev` — **not** off `main`, and **not** working directly on `dev`. If the current branch is `dev` or `main`, stop and run:
+
+```bash
+git checkout dev
+git pull
+git checkout -b feat/<slug>
+```
+
+Use `feat/<slug>` for new features, `fix/<slug>` for bug fixes, `chore/<slug>` for non-feature work. The slug is short kebab-case (`feat/rest-day-toggle`, `fix/streak-freeze-future-date`).
+
+See `FEATURE_FLOW.md` § Phase 0 for the full branching rules. Never open a PR from a feature branch directly to `main` — feature branches merge to `dev`; `dev` merges to `main` separately.
+
 ## Server scaffolding
 
 Create these files in order. Mirror the existing `habit` feature as the reference shape.
@@ -66,8 +80,31 @@ Run `cd server && npm test` and confirm green before moving to the client.
 
 11. **Lint + build** — `cd client && npm run lint && npm run build`. Confirm both pass.
 
+## Context update (mandatory — do NOT skip)
+
+After code passes, walk the phase-5 checklist from `FEATURE_FLOW.md`. Update the docs **in this same response**, not "later":
+
+| Question | If yes, update |
+|----------|----------------|
+| Added/changed a Mongoose schema? | `docs/DATA_MODELS.md` — add or update the table, indexes, hooks notes |
+| Introduced a new pattern? | The relevant `CLAUDE.md` (root / client / server) |
+| Made a non-obvious design choice? | New ADR in `docs/decisions/NNNN-<slug>.md` |
+| Hit a footgun or fixed a subtle bug? | `GOTCHAS.md` — one terse bullet |
+| Added/changed an env var? | Both `docs/ARCHITECTURE.md` §11 table AND `server/src/config/env.js` |
+| Added/changed an endpoint? | The `@swagger` JSDoc above the route (already required in step 5) |
+
+**Stale `DATA_MODELS.md` and missing ADRs are non-negotiable** — if either applies and you skipped it, the work isn't done.
+
 ## Reporting
 
-When done, post a summary listing every file created/modified, the test results, and any places you had to make a judgement call (e.g. which domain folder to use). If you hit a coverage gap, surface it explicitly — don't silently lower the threshold.
+When done, post a summary that includes:
+
+1. **Code files** created/modified (full paths).
+2. **Doc files** created/modified — list every one, with which checklist question triggered the update.
+3. Test results and coverage numbers for the new files.
+4. Any judgement calls (folder placement, optional features dropped/added).
+5. A one-line "Context update: <yes/no>" verdict for each of the six checklist questions, even the "no" ones — that's how you and the reviewer confirm nothing was skipped silently.
+
+If you hit a coverage gap, surface it explicitly. **Never** silently lower a threshold.
 
 If `$ARGUMENTS` looks plural ("streakRewards") or PascalCase ("StreakReward"), normalize to singular camelCase first and confirm with the user.

@@ -104,13 +104,30 @@ One named export per endpoint, returning the raw axios promise. Import the share
 
 Both must pass.
 
-## Step 3 — Reporting
+## Step 3 — Context update (mandatory)
+
+Code that passes tests but leaves docs stale is incomplete work. Walk the six-question checklist from `FEATURE_FLOW.md` § Phase 5 and update the relevant files **in the same response**:
+
+| Question | If yes, update |
+|----------|----------------|
+| Added or changed a Mongoose schema? | `docs/DATA_MODELS.md` — table, indexes, hooks notes |
+| Introduced a new pattern or convention? | Relevant `CLAUDE.md` (root / client / server) |
+| Made a non-obvious design choice? | New ADR at `docs/decisions/NNNN-<slug>.md` |
+| Hit a footgun or fixed a subtle bug? | `GOTCHAS.md` — one terse bullet under the right section |
+| Added or changed an env var? | Both `docs/ARCHITECTURE.md` §11 AND `server/src/config/env.js` |
+| Added or changed an endpoint? | `@swagger` JSDoc above the route (already required by step 1e) |
+
+Non-negotiable: if the feature touched a schema or made a design choice, **the corresponding doc update must be part of this response**, not deferred.
+
+## Step 4 — Reporting
 
 End with a summary message listing:
 
-- Every file created (full paths)
-- Every file modified (with one-line description of the change)
+- Every **code** file created (full paths)
+- Every **code** file modified (with one-line description of the change)
+- Every **doc** file created or modified, with which checklist question triggered it
 - Test results and final coverage numbers for the new files
+- A one-line context-update verdict for each of the six checklist questions (yes + what changed, or no + why not)
 - Any judgement calls you made (folder placement, optional features dropped/added)
 - Any follow-up work the user should consider (e.g. "you may want to add an index on `(userId, createdAt)` if you'll list-by-recent")
 

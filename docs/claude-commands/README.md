@@ -20,6 +20,7 @@ After that, Claude Code picks them up automatically. Invoke with `/new-feature s
 | `/check` | Run the full pre-commit gate: server tests, client lint, client build. |
 | `/cover` | Audit server test coverage against the thresholds in `jest.config.js` and report gaps. |
 | `/swagger-sync` | Audit `server/src/routes/*.js` for missing or stale `@swagger` JSDoc blocks. |
+| `/docs-audit` | Audit the current branch for context-doc drift — flags missing `DATA_MODELS.md`, ADR, env, and GOTCHAS updates that the code changes warrant. Run before opening a PR. |
 
 ## When to edit them
 

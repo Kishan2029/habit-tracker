@@ -39,6 +39,15 @@ Expected format: `<METHOD> <path> <description>` — e.g. `POST /habits/:id/dupl
 
 8. **Client side (only if asked)** — add a function to `client/src/api/<resource>Api.js` that wraps the new endpoint.
 
+## Context update (mandatory)
+
+Even a single endpoint can require doc updates. Check:
+
+- **Did the endpoint introduce a new field or change a schema?** → update `docs/DATA_MODELS.md`.
+- **Did you make a non-obvious choice** (new permission shape, new caching key, new auth path)? → ADR in `docs/decisions/`.
+- **Did you hit a footgun?** → one-liner in `GOTCHAS.md`.
+- **The `@swagger` JSDoc** above the route is mandatory — Swagger UI is the only API reference for this project. Don't ship without it.
+
 ## Reporting
 
-List every file touched, the new endpoint's signature, and the test results. Note any auth / authorization assumptions you made (e.g. "assumed user-scoped, no admin gate").
+List every file touched (code + docs), the new endpoint's signature, test results, and a one-line context-update verdict for each bullet above (even the "no" ones). Note any auth / authorization assumptions you made (e.g. "assumed user-scoped, no admin gate").
