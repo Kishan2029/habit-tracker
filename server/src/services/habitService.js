@@ -68,6 +68,8 @@ class HabitService {
 
   _invalidateCache(userId) {
     cache.delByPrefix(`habits:${userId}`);
+    // Correlation insights depend on habit set, frequency, target, and archived state.
+    cache.delByPrefix(`insights:${userId}`);
   }
 
   async create(userId, data) {

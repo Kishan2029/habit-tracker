@@ -5,6 +5,7 @@ import SharedHabit from '../models/SharedHabit.js';
 import AppError from '../utils/AppError.js';
 import streakService from './streakService.js';
 import sharedHabitService from './sharedHabitService.js';
+import cache from './cacheService.js';
 import {
   toUTCMidnight,
   getTodayUTC,
@@ -151,6 +152,13 @@ class LogService {
 
     const isNew = !result.lastErrorObject.updatedExisting;
     const logDoc = result.value;
+
+    // Insights cache depends on logs — invalidate so the next read recomputes.
+    cache.delByPrefix(`insights:${userId}`);
+    // If logged on a shared habit, also invalidate the owner's insights cache.
+    if (!isOwner) {
+      cache.delByPrefix(`insights:${habit.userId}`);
+    }
 
     // Don't let streak calculation errors fail the whole request
     let streaks = null;
