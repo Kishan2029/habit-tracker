@@ -61,6 +61,14 @@ jest.unstable_mockModule('../../services/sharedHabitService.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/streakFreezeService.js', () => ({
+  default: {
+    getFrozenDatesForHabit: jest.fn().mockResolvedValue(new Set()),
+    getFrozenDatesForUserHabits: jest.fn().mockResolvedValue(new Map()),
+    getFrozenDatesForHabits: jest.fn().mockResolvedValue(new Map()),
+  },
+}));
+
 jest.unstable_mockModule('../../services/notificationService.js', () => ({
   default: {
     send: jest.fn().mockResolvedValue(),

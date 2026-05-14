@@ -11,11 +11,9 @@ class CacheService {
   }
 
   set(key, value, ttl) {
-    // Track key under its prefix (everything up to the second colon or end)
+    // Track key under its prefix segments
     const colonIdx = key.indexOf(':');
     if (colonIdx !== -1) {
-      const prefix = key.slice(0, key.indexOf(':', colonIdx + 1) === -1 ? undefined : key.indexOf(':', colonIdx + 1)) || key;
-      // Track under the colon-delimited prefix segments
       const parts = key.split(':');
       for (let i = 1; i <= parts.length; i++) {
         const p = parts.slice(0, i).join(':');

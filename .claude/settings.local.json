@@ -10,7 +10,11 @@
       "Bash(gh pr:*)",
       "Bash(git stash:*)",
       "Bash(git pull:*)",
-      "Bash(grep -rn:*)"
+      "Bash(grep -rn:*)",
+      "Bash(gh repo:*)",
+      "Bash(git merge:*)",
+      "WebSearch",
+      "Bash(node --check server/src/services/logService.js)"
     ]
   }
 }

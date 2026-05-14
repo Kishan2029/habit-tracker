@@ -7,6 +7,7 @@ import {
   monthlyQueryRules,
   yearlyQueryRules,
   rangeQueryRules,
+  insightsQueryRules,
 } from '../validators/logValidators.js';
 import {
   createOrUpdateLog,
@@ -14,6 +15,7 @@ import {
   getMonthlyLogs,
   getYearlyLogs,
   getRangeLogs,
+  getInsights,
   getMembersProgress,
   getLeaderboard,
 } from '../controllers/logController.js';
@@ -332,6 +334,112 @@ router.get('/yearly', yearlyQueryRules, validate, getYearlyLogs);
  *                         $ref: '#/components/schemas/HabitLog'
  */
 router.get('/range', rangeQueryRules, validate, getRangeLogs);
+
+/**
+ * @swagger
+ * /logs/insights:
+ *   get:
+ *     summary: Get habit correlation insights — habit pairs whose completion moves together
+ *     description: |
+ *       For each ordered pair of the user's non-archived habits, computes the lift in completion
+ *       rate of habit B when habit A is completed vs not completed, scoped to the days where
+ *       both are scheduled. Pairs are filtered by minimum overlap days, minimum sample size in
+ *       each group, and minimum absolute lift (see `guards` in the response).
+ *     tags: [Logs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 14
+ *           maximum: 365
+ *           default: 60
+ *         description: Lookback window in days. Defaults to 60.
+ *     responses:
+ *       200:
+ *         description: Insights retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Insights retrieved
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     windowDays:
+ *                       type: integer
+ *                     guards:
+ *                       type: object
+ *                       properties:
+ *                         minOverlapDays:
+ *                           type: integer
+ *                         minCompletedDays:
+ *                           type: integer
+ *                         minLiftPp:
+ *                           type: integer
+ *                     reason:
+ *                       type: string
+ *                       nullable: true
+ *                       enum: [need_more_habits, no_pairs_pass_guards, null]
+ *                     insights:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           from:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               icon:
+ *                                 type: string
+ *                               color:
+ *                                 type: string
+ *                           to:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               icon:
+ *                                 type: string
+ *                               color:
+ *                                 type: string
+ *                           overlapDays:
+ *                             type: integer
+ *                           fromDoneCount:
+ *                             type: integer
+ *                           fromMissedCount:
+ *                             type: integer
+ *                           rateGivenDone:
+ *                             type: number
+ *                             description: P(to completed | from completed)
+ *                           rateGivenMissed:
+ *                             type: number
+ *                             description: P(to completed | from not completed)
+ *                           liftPp:
+ *                             type: integer
+ *                             description: (rateGivenDone - rateGivenMissed) * 100, rounded to integer percentage points
+ *       400:
+ *         description: Invalid days parameter
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/insights', insightsQueryRules, validate, getInsights);
 
 /**
  * @swagger

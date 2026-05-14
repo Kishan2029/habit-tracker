@@ -6,11 +6,12 @@ jest.unstable_mockModule('../../services/authService.js', () => ({
     login: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    changePassword: jest.fn(),
   },
 }));
 
 const { default: authService } = await import('../../services/authService.js');
-const { register, login, forgotPassword, resetPassword } = await import(
+const { register, login, forgotPassword, resetPassword, changePassword } = await import(
   '../../controllers/authController.js'
 );
 
@@ -133,6 +134,31 @@ describe('AuthController', () => {
       expect(authService.resetPassword).toHaveBeenCalledWith('reset-token', 'newpass123');
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
+      );
+    });
+  });
+
+  describe('changePassword', () => {
+    it('should change password and return token', async () => {
+      const mockResult = { token: 'new-jwt-token' };
+      authService.changePassword.mockResolvedValue(mockResult);
+
+      const req = {
+        user: { _id: 'u1' },
+        body: { currentPassword: 'oldpass', newPassword: 'newpass123' },
+      };
+      await changePassword(req, res, next);
+
+      expect(authService.changePassword).toHaveBeenCalledWith('u1', {
+        currentPassword: 'oldpass',
+        newPassword: 'newpass123',
+      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: 'Password changed successfully',
+          data: { token: 'new-jwt-token' },
+        })
       );
     });
   });

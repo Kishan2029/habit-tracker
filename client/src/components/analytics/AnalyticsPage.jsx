@@ -2,12 +2,14 @@ import { useState } from 'react';
 import DailyAnalytics from './DailyAnalytics';
 import MonthlyAnalytics from './MonthlyAnalytics';
 import YearlyAnalytics from './YearlyAnalytics';
+import InsightsView from './InsightsView';
 import ExportButton from './ExportButton';
 
 const TABS = [
   { key: 'daily', label: 'Daily' },
   { key: 'monthly', label: 'Monthly' },
   { key: 'yearly', label: 'Yearly' },
+  { key: 'insights', label: 'Insights' },
 ];
 
 export default function AnalyticsPage() {
@@ -42,6 +44,7 @@ export default function AnalyticsPage() {
         {activeTab === 'daily' && <DailyAnalytics />}
         {activeTab === 'monthly' && <MonthlyAnalytics />}
         {activeTab === 'yearly' && <YearlyAnalytics />}
+        {activeTab === 'insights' && <InsightsView />}
       </div>
     </div>
   );

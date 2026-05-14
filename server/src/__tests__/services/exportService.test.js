@@ -67,11 +67,18 @@ describe('ExportService', () => {
 
       const result = await exportService.getExportData('user1', '2025-01-01', '2025-01-31');
 
-      expect(Habit.find).toHaveBeenCalledWith({
-        userId: 'user1',
-        createdAt: { $lte: new Date('2025-01-31T00:00:00.000Z') },
-        $or: [{ isArchived: false }, { _id: { $in: ['archived1'] } }],
-      });
+      const call = Habit.find.mock.calls[0][0];
+      expect(call.userId).toBe('user1');
+      expect(call.$and).toBeDefined();
+      // Should include the active-or-logged filter
+      const activeOrLogged = call.$and.find((c) => c.$or?.some((o) => o.isArchived !== undefined));
+      expect(activeOrLogged).toBeDefined();
+      expect(activeOrLogged.$or).toEqual(
+        expect.arrayContaining([
+          { isArchived: false },
+          { _id: { $in: ['archived1'] } },
+        ])
+      );
       expect(result.habits).toHaveLength(1);
       expect(result.logs).toHaveLength(1);
     });

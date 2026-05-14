@@ -10,6 +10,12 @@ describe('StreakService', () => {
     dateStrings.map((d) => ({ date: new Date(`${d}T00:00:00.000Z`), value }));
 
   describe('calculateStreaks', () => {
+    it('should handle being called without options (default parameter)', () => {
+      const result = streakService.calculateStreaks([]);
+      expect(result.currentStreak).toBe(0);
+      expect(result.longestStreak).toBe(0);
+    });
+
     it('should return 0/0 for empty logs', () => {
       const createdAt = addDays(today, -10);
       const result = streakService.calculateStreaks([], { frequency: allDays, target: 1, habitCreatedAt: createdAt });
@@ -235,6 +241,83 @@ describe('StreakService', () => {
       expect(result.longestStreak).toBe(5);
       // Current: only today (day -2 breaks it)
       expect(result.currentStreak).toBe(1);
+    });
+
+    it('should work when frozenDates is not provided (default parameter)', () => {
+      const dates = [
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const createdAt = addDays(today, -5);
+
+      // Call without frozenDates at all — should use default new Set()
+      const result = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+      });
+
+      expect(result.currentStreak).toBe(2);
+      expect(result.longestStreak).toBe(2);
+    });
+
+    it('should use getTodayUTC when timezone is not provided', () => {
+      const dates = [
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const createdAt = addDays(today, -5);
+
+      // timezone is undefined — should fall back to getTodayUTC()
+      const result = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        timezone: undefined,
+      });
+
+      expect(result.currentStreak).toBe(2);
+      expect(result.longestStreak).toBe(2);
+    });
+
+    it('should use getTodayUTC when timezone is null', () => {
+      const dates = [
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const createdAt = addDays(today, -5);
+
+      const result = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        timezone: null,
+      });
+
+      expect(result.currentStreak).toBe(2);
+      expect(result.longestStreak).toBe(2);
+    });
+
+    it('should use getTodayInTimezone when timezone is provided', () => {
+      const dates = [
+        toDateString(addDays(today, -1)),
+        toDateString(today),
+      ];
+      const logs = makeLogs(dates);
+      const createdAt = addDays(today, -5);
+
+      const result = streakService.calculateStreaks(logs, {
+        frequency: allDays,
+        target: 1,
+        habitCreatedAt: createdAt,
+        timezone: 'America/New_York',
+      });
+
+      expect(result.currentStreak).toBe(2);
+      expect(result.longestStreak).toBe(2);
     });
 
     it('should work with empty frozenDates (backward compatible)', () => {

@@ -1,7 +1,9 @@
 import catchAsync from '../utils/catchAsync.js';
 import { sendSuccess } from '../utils/responseFormatter.js';
 import logService from '../services/logService.js';
+import correlationService from '../services/correlationService.js';
 import AppError from '../utils/AppError.js';
+import { INSIGHTS_DEFAULT_WINDOW_DAYS } from '../config/constants.js';
 
 export const createOrUpdateLog = catchAsync(async (req, res) => {
   const timezone = req.user.settings?.timezone || null;
@@ -44,6 +46,14 @@ export const getLeaderboard = catchAsync(async (req, res) => {
   const timezone = req.user.settings?.timezone || null;
   const data = await logService.getLeaderboard(req.user._id, req.params.habitId, range, timezone);
   sendSuccess(res, data, 'Leaderboard retrieved');
+});
+
+export const getInsights = catchAsync(async (req, res) => {
+  // insightsQueryRules validator already ran .toInt(), so req.query.days is a safe integer or undefined
+  const windowDays = req.query.days ?? INSIGHTS_DEFAULT_WINDOW_DAYS;
+  const timezone = req.user.settings?.timezone || null;
+  const data = await correlationService.getInsights(req.user._id, { windowDays, timezone });
+  sendSuccess(res, data, 'Insights retrieved');
 });
 
 export const getMembersProgress = catchAsync(async (req, res) => {

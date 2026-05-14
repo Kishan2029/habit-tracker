@@ -47,3 +47,14 @@ export const STREAK_MILESTONES = [7, 14, 21, 30, 50, 100, 200, 365];
 export const DEFAULT_HABIT_COLOR = '#6366f1';
 export const DEFAULT_HABIT_ICON = '\u{1F3AF}';
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+// Habit Insights (correlation analytics) — tunable thresholds.
+// See server/src/services/correlationService.js for usage and FEATURE_FLOW.md
+// for the design discussion.
+export const INSIGHTS_DEFAULT_WINDOW_DAYS = 60;
+export const INSIGHTS_MIN_OVERLAP_DAYS = 14;
+export const INSIGHTS_MIN_COMPLETED_DAYS = 5;
+export const INSIGHTS_MIN_LIFT_PP = 15;
+export const INSIGHTS_MIN_WINDOW_DAYS = 14;
+export const INSIGHTS_MAX_WINDOW_DAYS = 365;
+export const INSIGHTS_CACHE_TTL_SECONDS = 600;
