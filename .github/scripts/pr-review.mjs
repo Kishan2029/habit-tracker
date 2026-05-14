@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 import Anthropic from '@anthropic-ai/sdk';
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const PR_NUMBER = process.env.PR_NUMBER;
@@ -88,15 +84,19 @@ const review = message.content
 
 console.log(`\n\nTokens used — input: ${message.usage.input_tokens}, output: ${message.usage.output_tokens}`);
 
-// Write comment body to a temp file to avoid shell-escaping issues
-const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-const commentBody = `## Claude Code Review\n\n${review}\n\n---\n*Reviewed by [Claude Opus 4.7](https://claude.ai) · [View workflow run](${runUrl})*`;
-const tmpFile = join(tmpdir(), `pr-review-${PR_NUMBER}-${randomUUID()}.md`);
+// PR comment posting is disabled — review is logged to Actions output only.
+// To re-enable: uncomment the block below and restore pull-requests: write in pr-review.yml.
+//
+// const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+// const commentBody = `## Claude Code Review\n\n${review}\n\n---\n*Reviewed by [Claude Opus 4.7](https://claude.ai) · [View workflow run](${runUrl})*`;
+// const tmpFile = join(tmpdir(), `pr-review-${PR_NUMBER}-${randomUUID()}.md`);
+//
+// try {
+//   writeFileSync(tmpFile, commentBody);
+//   execSync(`gh pr comment ${PR_NUMBER} --body-file "${tmpFile}"`);
+//   console.log('Review posted successfully.');
+// } finally {
+//   try { unlinkSync(tmpFile); } catch {}
+// }
 
-try {
-  writeFileSync(tmpFile, commentBody);
-  execSync(`gh pr comment ${PR_NUMBER} --body-file "${tmpFile}"`);
-  console.log('Review posted successfully.');
-} finally {
-  try { unlinkSync(tmpFile); } catch {}
-}
+console.log('Review complete. Comment posting is disabled (logged to Actions output only).');
