@@ -20,7 +20,7 @@ export default function SwipeToToggleRow({ isCompleted, onComplete, onUndo, disa
     preventScrollOnSwipe: false,
   });
 
-  if (!enabled) return children;
+  if (!enabled) return <>{children}</>;
 
   return <div {...handlers}>{children}</div>;
 }

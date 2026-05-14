@@ -8,6 +8,8 @@ export function usePullToRefresh({ onRefresh, enabled = true }) {
   const containerRef = useRef(null);
   const startYRef = useRef(null);
   const pullingRef = useRef(false);
+  const pullDistanceRef = useRef(0);
+  const refreshingRef = useRef(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -19,46 +21,54 @@ export function usePullToRefresh({ onRefresh, enabled = true }) {
     const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) === 0;
 
     const onTouchStart = (e) => {
-      if (refreshing) return;
+      if (refreshingRef.current) return;
       if (!atTop()) return;
       startYRef.current = e.touches[0].clientY;
       pullingRef.current = false;
     };
 
     const onTouchMove = (e) => {
-      if (refreshing || startYRef.current === null) return;
+      if (refreshingRef.current || startYRef.current === null) return;
       const delta = e.touches[0].clientY - startYRef.current;
       if (delta <= 0) {
         pullingRef.current = false;
+        pullDistanceRef.current = 0;
         setPullDistance(0);
         return;
       }
       if (!atTop()) {
         startYRef.current = null;
+        pullDistanceRef.current = 0;
         setPullDistance(0);
         return;
       }
       pullingRef.current = true;
       const eased = Math.min(MAX_PULL, delta * RESISTANCE);
+      pullDistanceRef.current = eased;
       setPullDistance(eased);
       if (e.cancelable) e.preventDefault();
     };
 
     const onTouchEnd = async () => {
-      if (refreshing) return;
-      const shouldRefresh = pullingRef.current && pullDistance >= THRESHOLD;
+      if (refreshingRef.current) return;
+      const shouldRefresh = pullingRef.current && pullDistanceRef.current >= THRESHOLD;
       pullingRef.current = false;
       startYRef.current = null;
       if (shouldRefresh) {
+        refreshingRef.current = true;
         setRefreshing(true);
+        pullDistanceRef.current = THRESHOLD;
         setPullDistance(THRESHOLD);
         try {
           await onRefresh();
         } finally {
+          refreshingRef.current = false;
           setRefreshing(false);
+          pullDistanceRef.current = 0;
           setPullDistance(0);
         }
       } else {
+        pullDistanceRef.current = 0;
         setPullDistance(0);
       }
     };
@@ -74,7 +84,7 @@ export function usePullToRefresh({ onRefresh, enabled = true }) {
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [enabled, onRefresh, pullDistance, refreshing]);
+  }, [enabled, onRefresh]);
 
   return { containerRef, pullDistance, refreshing, threshold: THRESHOLD };
 }
