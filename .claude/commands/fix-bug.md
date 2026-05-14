@@ -98,7 +98,7 @@ Rules:
 - Do not add defensive code that papers over the bug without explaining it — it makes the next bug harder to find.
 - If the fix requires a new helper or util, add it, but don't refactor existing code in the same commit.
 - If the fix reveals a related bug, note it in `docs/FEATURE_IDEAS.md` or open a separate issue — **do not fix it inline** unless it's trivially coupled.
-- If the fix feels large (>30 lines), you've likely found a structural problem — ship the minimal fix, then open a separate refactor.
+- If the fix touches more than one module (beyond the single function or file where the defect lives), you've likely found a structural problem — ship the minimal fix first, then open a separate refactor.
 
 After fixing, re-run the failing test from Phase 1. It must now pass:
 

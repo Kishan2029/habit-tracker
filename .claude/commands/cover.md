@@ -8,11 +8,7 @@ Audit server test coverage and surface gaps.
 
 1. Run `cd server && npm run test:coverage`.
 2. Parse the coverage summary from `server/coverage/coverage-summary.json` (preferred) or the terminal output.
-3. Cross-check against the thresholds defined in `server/jest.config.js`:
-   - `src/utils/` — 100% branches, functions, lines, statements
-   - `src/controllers/` — 100% on all
-   - `src/middleware/` — 90% branches, 100% on the rest
-   - `src/services/authService.js`, `cacheService.js`, `habitService.js`, `streakService.js`, `userService.js` — 100% on all
+3. Read the current thresholds from `server/jest.config.js` (the `coverageThreshold` key). Do not rely on any hardcoded numbers — always use whatever the config file says at the time of the run.
 
 ## Reporting
 
