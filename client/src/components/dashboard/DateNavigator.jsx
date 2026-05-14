@@ -1,10 +1,13 @@
+import { useSwipeable } from 'react-swipeable';
 import Button from '../ui/Button';
 import { getLocalDateString, shiftDate } from '../../utils/dateUtils';
+import { useIsTouchDevice } from '../../hooks/useIsTouchDevice';
 
 export default function DateNavigator({ date, onChange, minDate }) {
   const today = getLocalDateString();
   const defaultMin = shiftDate(today, -7);
   const minDateStr = minDate || defaultMin;
+  const isTouch = useIsTouchDevice();
 
   const canGoForward = date < today;
   const canGoBack = date > minDateStr;
@@ -12,6 +15,14 @@ export default function DateNavigator({ date, onChange, minDate }) {
   const shift = (days) => {
     onChange(shiftDate(date, days));
   };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => { if (canGoForward) shift(1); },
+    onSwipedRight: () => { if (canGoBack) shift(-1); },
+    trackTouch: isTouch,
+    trackMouse: false,
+    delta: 60,
+  });
 
   const isToday = date === today;
 
@@ -27,7 +38,7 @@ export default function DateNavigator({ date, onChange, minDate }) {
   };
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between touch-pan-y" {...swipeHandlers}>
       <Button
         variant="ghost"
         size="sm"

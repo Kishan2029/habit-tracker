@@ -12,6 +12,7 @@ import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { CATEGORIES } from '../../config/categories';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import toast from 'react-hot-toast';
 
 export default function HabitList() {
@@ -45,6 +46,10 @@ export default function HabitList() {
   useEffect(() => {
     fetchHabits();
   }, [fetchHabits]);
+
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh({
+    onRefresh: fetchHabits,
+  });
 
   const handleCreate = async (formData) => {
     setSaving(true);
@@ -122,8 +127,29 @@ export default function HabitList() {
 
   if (loading) return <LoadingSpinner />;
 
+  const pullReady = pullDistance >= threshold;
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div ref={containerRef} className="max-w-4xl mx-auto relative">
+      <div
+        className="pointer-events-none absolute left-0 right-0 -top-1 flex items-center justify-center overflow-hidden"
+        style={{ height: pullDistance, opacity: pullDistance / threshold }}
+        aria-hidden="true"
+      >
+        <svg
+          className={`w-5 h-5 text-indigo-500 ${refreshing ? 'animate-spin' : ''}`}
+          style={{ transform: refreshing ? 'none' : `rotate(${Math.min(pullDistance * 3, 360)}deg)` }}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582a8 8 0 0114.96 1M20 20v-5h-.581a8 8 0 01-14.96-1" />
+        </svg>
+        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+          {refreshing ? 'Refreshing…' : pullReady ? 'Release to refresh' : 'Pull to refresh'}
+        </span>
+      </div>
+      <div style={{ transform: `translateY(${pullDistance}px)`, transition: pullDistance === 0 ? 'transform 200ms ease-out' : 'none' }}>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Habits</h1>
         <div className="flex items-center gap-3">
@@ -249,6 +275,7 @@ export default function HabitList() {
           onClose={() => setSharingHabit(null)}
         />
       )}
+      </div>
     </div>
   );
 }

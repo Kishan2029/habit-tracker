@@ -1,8 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import HabitCard from './HabitCard';
+import SwipeableHabitRow from '../ui/SwipeableHabitRow';
 
-export default function SortableHabitCard({ habit, ...props }) {
+export default function SortableHabitCard({ habit, onEdit, onDelete, ...props }) {
   const {
     attributes,
     listeners,
@@ -36,7 +37,13 @@ export default function SortableHabitCard({ habit, ...props }) {
           <circle cx="15" cy="18" r="1.5" />
         </svg>
       </div>
-      <HabitCard habit={habit} {...props} />
+      <SwipeableHabitRow
+        disabled={habit.isArchived}
+        onEdit={() => onEdit?.(habit)}
+        onDelete={() => onDelete?.(habit)}
+      >
+        <HabitCard habit={habit} onEdit={onEdit} onDelete={onDelete} {...props} />
+      </SwipeableHabitRow>
     </div>
   );
 }

@@ -13,6 +13,7 @@ Scope: everything under `client/`. For repo-wide rules see `../CLAUDE.md`.
 - **Recharts** for analytics charts
 - **@dnd-kit** for drag-and-drop habit reordering
 - **canvas-confetti** for the all-done celebration
+- **react-swipeable** for mobile swipe gestures (touch-only; never enable `trackMouse`)
 - **vite-plugin-pwa** with `injectManifest` strategy — service worker is `src/sw.js`
 
 ES modules, JSX, no TypeScript. Dev server on port 5173, proxies `/api` to `http://localhost:5000` (see `vite.config.js`).
@@ -116,7 +117,20 @@ This is the easiest thing to get wrong in this codebase. **Rules:**
 - Habit-specific date math (scheduled-day checks, etc.) lives in `utils/habitDateUtils.js`. Use it; don't reimplement `frequency` array checks inline.
 - `utils/useToday.js` is a hook that returns today's date string and re-renders across midnight.
 
-## PWA / service worker
+## Mobile gestures
+
+Touch swipes are layered on top of the existing button/tap UI — **never replace** buttons with gesture-only controls. Desktop falls back to the existing controls automatically.
+
+- **Library:** `react-swipeable` for swipe detection. Pull-to-refresh is hand-rolled in `hooks/usePullToRefresh.js` because the library doesn't model it.
+- **Touch-only:** gate every swipe with `useIsTouchDevice()` (`hooks/useIsTouchDevice.js`, matches `(hover: none) and (pointer: coarse)`). Pass `trackTouch: isTouch, trackMouse: false` so a mouse-drag on desktop never fires a swipe.
+- **Existing surfaces:**
+  - Today view habit card → `components/dashboard/SwipeToToggleRow.jsx` (right = complete, left = undo).
+  - Today view date nav → `components/dashboard/DateNavigator.jsx` (left = next day, right = prev).
+  - Habits page row reveal → `components/ui/SwipeableHabitRow.jsx` (swipe-left exposes Edit + Delete).
+  - Habits page pull-to-refresh → `usePullToRefresh` wired in `components/habits/HabitList.jsx`.
+  - Analytics tabs → `components/analytics/AnalyticsPage.jsx` (left/right cycles `TABS`).
+- **Conflict rule:** if a parent element responds to horizontal swipes, do not nest another horizontal-swipe handler inside it. Today view only puts swipe-to-toggle on the habit card and date-swipe on the `DateNavigator` row — they never overlap.
+- **Threshold:** use `delta: 50–60` on row-level swipes so a real tap (with tiny finger drift) never fires the gesture.
 
 - `src/sw.js` is the custom service worker (push notifications + offline cache). `vite-plugin-pwa` injects the precache manifest at build time (`injectManifest` strategy).
 - **Do not call `navigator.serviceWorker.register('/sw.js')` from `main.jsx`** — the plugin handles registration. Duplicate registration causes SW conflicts.

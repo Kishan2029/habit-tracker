@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useSwipeable } from 'react-swipeable';
 import DailyAnalytics from './DailyAnalytics';
 import MonthlyAnalytics from './MonthlyAnalytics';
 import YearlyAnalytics from './YearlyAnalytics';
 import InsightsView from './InsightsView';
 import ExportButton from './ExportButton';
+import { useIsTouchDevice } from '../../hooks/useIsTouchDevice';
 
 const TABS = [
   { key: 'daily', label: 'Daily' },
@@ -14,6 +16,22 @@ const TABS = [
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState('monthly');
+  const isTouch = useIsTouchDevice();
+
+  const shiftTab = (delta) => {
+    const idx = TABS.findIndex((t) => t.key === activeTab);
+    const next = idx + delta;
+    if (next < 0 || next >= TABS.length) return;
+    setActiveTab(TABS[next].key);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => shiftTab(1),
+    onSwipedRight: () => shiftTab(-1),
+    trackTouch: isTouch,
+    trackMouse: false,
+    delta: 60,
+  });
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -40,7 +58,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Tab content */}
-      <div className="transition-opacity duration-200">
+      <div className="transition-opacity duration-200 touch-pan-y" {...swipeHandlers}>
         {activeTab === 'daily' && <DailyAnalytics />}
         {activeTab === 'monthly' && <MonthlyAnalytics />}
         {activeTab === 'yearly' && <YearlyAnalytics />}
