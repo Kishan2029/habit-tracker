@@ -4,6 +4,7 @@ import { execSync } from 'child_process';
 import { writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const PR_NUMBER = process.env.PR_NUMBER;
@@ -90,7 +91,7 @@ console.log(`\n\nTokens used — input: ${message.usage.input_tokens}, output: $
 // Write comment body to a temp file to avoid shell-escaping issues
 const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 const commentBody = `## Claude Code Review\n\n${review}\n\n---\n*Reviewed by [Claude Opus 4.7](https://claude.ai) · [View workflow run](${runUrl})*`;
-const tmpFile = join(tmpdir(), `pr-review-${PR_NUMBER}.md`);
+const tmpFile = join(tmpdir(), `pr-review-${PR_NUMBER}-${randomUUID()}.md`);
 
 try {
   writeFileSync(tmpFile, commentBody);

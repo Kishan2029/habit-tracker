@@ -118,11 +118,20 @@ class CorrelationService {
       }
     }
 
+    // Pre-build the window date list once (O(windowDays)) so _computeDirectional
+    // doesn't re-walk dates and re-allocate Date objects for every habit pair.
+    const windowDates = [];
+    let cursor = new Date(start);
+    while (cursor <= today) {
+      windowDates.push({ dateStr: toDateString(cursor), dow: getDayOfWeek(cursor) });
+      cursor = addDays(cursor, 1);
+    }
+
     const insights = [];
     for (let i = 0; i < habits.length; i++) {
       for (let j = 0; j < habits.length; j++) {
         if (i === j) continue;
-        const insight = this._computeDirectional(habits[i], habits[j], completedSets, start, today);
+        const insight = this._computeDirectional(habits[i], habits[j], completedSets, windowDates);
         if (insight) insights.push(insight);
       }
     }
@@ -148,7 +157,7 @@ class CorrelationService {
    * Compute the directional insight "from → to" for a single ordered habit pair.
    * Returns null if any guard fails.
    */
-  _computeDirectional(from, to, completedSets, start, today) {
+  _computeDirectional(from, to, completedSets, windowDates) {
     const fromCompleted = completedSets.get(from._id.toString());
     const toCompleted = completedSets.get(to._id.toString());
 
@@ -158,12 +167,9 @@ class CorrelationService {
     let toDoneGivenFromDone = 0;
     let toDoneGivenFromMissed = 0;
 
-    let cursor = new Date(start);
-    while (cursor <= today) {
-      const dow = getDayOfWeek(cursor);
+    for (const { dateStr, dow } of windowDates) {
       if (from.frequency.includes(dow) && to.frequency.includes(dow)) {
         overlapDays++;
-        const dateStr = toDateString(cursor);
         const fromDone = fromCompleted.has(dateStr);
         const toDone = toCompleted.has(dateStr);
         if (fromDone) {
@@ -174,7 +180,6 @@ class CorrelationService {
           if (toDone) toDoneGivenFromMissed++;
         }
       }
-      cursor = addDays(cursor, 1);
     }
 
     if (overlapDays < INSIGHTS_MIN_OVERLAP_DAYS) return null;

@@ -61,8 +61,8 @@ function Section({ title, subtitle, insights }) {
         <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
       </div>
       <div className="space-y-2">
-        {insights.map((insight, idx) => (
-          <InsightCard key={`${insight.from._id}-${insight.to._id}-${idx}`} insight={insight} />
+        {insights.map((insight) => (
+          <InsightCard key={`${insight.from._id}-${insight.to._id}`} insight={insight} />
         ))}
       </div>
     </div>
@@ -82,8 +82,9 @@ export default function InsightsView() {
         const { data: res } = await getInsights(WINDOW_DAYS);
         if (fetchId !== fetchIdRef.current) return;
         setData(res.data);
-      } catch {
+      } catch (err) {
         if (fetchId !== fetchIdRef.current) return;
+        if (import.meta.env.DEV) console.error('InsightsView: failed to fetch insights', err);
         setData(null);
       } finally {
         if (fetchId === fetchIdRef.current) setLoading(false);
