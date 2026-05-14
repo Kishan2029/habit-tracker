@@ -14,7 +14,8 @@
       "Bash(gh repo:*)",
       "Bash(git merge:*)",
       "WebSearch",
-      "Bash(node --check server/src/services/logService.js)"
+      "Bash(node --check server/src/services/logService.js)",
+      "Bash(git checkout:*)"
     ]
   }
 }
