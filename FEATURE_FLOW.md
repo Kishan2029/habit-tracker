@@ -2,6 +2,8 @@
 
 The canonical recipe for adding a feature to this repo. Every feature passes through these phases. Phases 1, 2, and 5 are the ones people skip — they're also where features become tech debt. The slash commands and the `scaffold-habit-feature` skill automate phases 3 and 4; this doc enforces 1, 2, and 5.
 
+> **Not a full feature?** → `BUG_FIX_FLOW.md` for bugs · `QUICK_TASK_FLOW.md` for small UI changes, minor backend tweaks, and chores
+
 ---
 
 ## Phase 0 — Branch
