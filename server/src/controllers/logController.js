@@ -49,8 +49,7 @@ export const getLeaderboard = catchAsync(async (req, res) => {
 });
 
 export const getInsights = catchAsync(async (req, res) => {
-  // insightsQueryRules validator already ran .toInt(), so req.query.days is a safe integer or undefined
-  const windowDays = req.query.days ?? INSIGHTS_DEFAULT_WINDOW_DAYS;
+  const windowDays = req.query.days !== undefined ? parseInt(req.query.days, 10) : INSIGHTS_DEFAULT_WINDOW_DAYS;
   const timezone = req.user.settings?.timezone || null;
   const data = await correlationService.getInsights(req.user._id, { windowDays, timezone });
   sendSuccess(res, data, 'Insights retrieved');

@@ -12,7 +12,14 @@ jest.unstable_mockModule('../../services/logService.js', () => ({
   },
 }));
 
+jest.unstable_mockModule('../../services/correlationService.js', () => ({
+  default: {
+    getInsights: jest.fn(),
+  },
+}));
+
 const { default: logService } = await import('../../services/logService.js');
+const { default: correlationService } = await import('../../services/correlationService.js');
 const {
   createOrUpdateLog,
   getDailyLogs,
@@ -21,6 +28,7 @@ const {
   getRangeLogs,
   getLeaderboard,
   getMembersProgress,
+  getInsights,
 } = await import('../../controllers/logController.js');
 
 const createMockRes = () => {
@@ -165,6 +173,38 @@ describe('LogController', () => {
       expect(next).toHaveBeenCalledWith(
         expect.objectContaining({ statusCode: 400 })
       );
+    });
+  });
+
+  describe('getInsights', () => {
+    it('should parse string days query param to integer', async () => {
+      const mockData = { windowDays: 60, insights: [] };
+      correlationService.getInsights.mockResolvedValue(mockData);
+
+      const req = { user: { _id: 'u1', settings: {} }, query: { days: '60' } };
+      await getInsights(req, res, next);
+
+      expect(correlationService.getInsights).toHaveBeenCalledWith('u1', { windowDays: 60, timezone: null });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    });
+
+    it('should use default window days when days param is absent', async () => {
+      const mockData = { windowDays: 60, insights: [] };
+      correlationService.getInsights.mockResolvedValue(mockData);
+
+      const req = { user: { _id: 'u1', settings: {} }, query: {} };
+      await getInsights(req, res, next);
+
+      expect(correlationService.getInsights).toHaveBeenCalledWith('u1', { windowDays: 60, timezone: null });
+    });
+
+    it('should pass user timezone to correlationService', async () => {
+      correlationService.getInsights.mockResolvedValue({ windowDays: 30, insights: [] });
+
+      const req = { user: { _id: 'u1', settings: { timezone: 'America/New_York' } }, query: { days: '30' } };
+      await getInsights(req, res, next);
+
+      expect(correlationService.getInsights).toHaveBeenCalledWith('u1', { windowDays: 30, timezone: 'America/New_York' });
     });
   });
 
