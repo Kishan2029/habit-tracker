@@ -1,15 +1,8 @@
-# Claude slash commands — staging folder
+# Claude slash commands
 
-These are slash commands that should live in `.claude/commands/`. The `.claude/` directory is protected from automated writes in some environments, so they're staged here. To activate them:
+The authoritative copies of all slash commands live in `.claude/commands/` and are checked into the repo. Claude Code picks them up automatically from there — no manual copy step needed.
 
-```bash
-mkdir -p .claude/commands
-cp docs/claude-commands/*.md .claude/commands/
-# do NOT copy this README
-rm -f .claude/commands/README.md
-```
-
-After that, Claude Code picks them up automatically. Invoke with `/new-feature streakReward`, `/check`, etc.
+This `docs/claude-commands/` folder is kept as a reference index only (the `README.md` you're reading now). The individual `.md` files live in `.claude/commands/`.
 
 ## Available commands
 
@@ -21,7 +14,8 @@ After that, Claude Code picks them up automatically. Invoke with `/new-feature s
 | `/cover` | Audit server test coverage against the thresholds in `jest.config.js` and report gaps. |
 | `/swagger-sync` | Audit `server/src/routes/*.js` for missing or stale `@swagger` JSDoc blocks. |
 | `/docs-audit` | Audit the current branch for context-doc drift — flags missing `DATA_MODELS.md`, ADR, env, and GOTCHAS updates that the code changes warrant. Run before opening a PR. |
+| `/fix-bug <description>` | Drive a bug fix end-to-end: triage → failing test → root cause → minimum fix → verify → GOTCHAS update → PR. |
 
 ## When to edit them
 
-Slash commands are markdown prompts. If Claude is doing something slightly off when you run one, edit the corresponding `.md` file — that's faster than re-explaining every session.
+Slash commands are markdown prompts. Edit the file under `.claude/commands/` directly — that's the live copy. Don't create a duplicate here.
