@@ -211,8 +211,18 @@ Both exports include owned and shared habits.
 - Validates: `date ≤ today`, `date ≥ (today − 7 days)`, `date ≥ habit creation date`.
 - Shared-habit authorization: owner, admin, or member can log; viewers cannot.
 - After logging, `updateStreaks()` runs asynchronously (errors caught, don't fail the request).
+- After logging, also invalidates the insights cache via `cache.delByPrefix('insights:' + userId)` (and the habit owner's prefix when a shared member logs).
 - `getDailyLogs`: 3-phase parallel query for optimal performance.
 - `getYearlyLogs`: MongoDB aggregation pipeline for monthly stats.
+
+### `correlationService`
+
+- `getInsights(userId, { windowDays, timezone })` — computes habit-pair correlation insights over the last `windowDays` (default 60).
+- For each ordered pair `(A, B)` of the user's non-archived habits, computes `P(B | A) − P(B | ¬A)` scoped to days where both habits are scheduled. Returns the lift in percentage points alongside sample counts.
+- Three filters guard against statistical noise: minimum overlap days, minimum sample size in each group, minimum absolute lift. Thresholds live in `server/src/config/constants.js` as `INSIGHTS_*` and are tunable without code changes.
+- Cached under `insights:<userId>:<windowDays>` with a 10-minute TTL. Invalidated by `logService.createOrUpdate` (log writes) and by `habitService._invalidateCache` (habit set or fields that affect scheduling/completion).
+- Uses conditional probability rather than a coefficient like Pearson/phi because the UI renders sentences, not scores. Trade-off documented inline in the service file.
+- Day-of-week derivation follows `streakService` — `getUTCDay()` on the stored UTC-midnight log date.
 
 ---
 

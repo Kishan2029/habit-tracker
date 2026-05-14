@@ -20,6 +20,7 @@ Booby traps in this codebase that have bitten us before. Skim before refactoring
 ## Mongoose / cache
 
 - **Every write to a cached resource must invalidate the cache.** `habitService` has a private `_invalidateCache(userId)` called from create/update/archive/unarchive/delete/reorder. If you add a new write method, call it. If you add caching to a new service, copy the pattern.
+- **Caches that derive from logs OR habits must be invalidated from both write paths.** Example: `insights:<userId>` (correlation analytics) is wiped by `logService.createOrUpdate` (log writes) AND by `habitService._invalidateCache` (habit set / frequency / target / archive changes). If you add a new derived cache, audit every service that mutates its inputs — the cache key won't enumerate the inputs for you.
 - Cache is in-process (node-cache, per-instance). If we scale horizontally, this becomes a stale-read source — see ADR 0005.
 - Mongoose enums come from `server/src/config/constants.js`. Don't redefine enum values in the schema directly — use the constants so validator + model + frontend can share them.
 - Compound indexes matter for query performance — `(userId, isArchived)`, `(habitId, userId, date) UNIQUE`, etc. If you add a new query pattern in a service, check whether it has an index covering it.

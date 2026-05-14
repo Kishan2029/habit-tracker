@@ -50,13 +50,20 @@ The backlog of candidate features for this habit tracker. Each entry is a lightw
 
 ### Habit correlations
 
-- Status: Proposed
+- Status: In progress (branch `feat/habit-insights`)
 - Theme: Insights
 - Effort: M
 - Summary: For each habit pair, show "when you complete A, you complete B X% of the time vs Y% baseline." Surfaces hidden relationships in the data the user already has.
-- Surface: New aggregation in `logService` or a new `correlationService`; new analytics page under `client/src/components/analytics/`. No schema change.
-- Tradeoffs: Statistically noisy for users with sparse data — need a minimum-sample-size guard. Won't render anything useful for new users.
+- Surface: New `correlationService`; new endpoint `GET /api/logs/insights?days=60`; new `InsightsView.jsx` as a new tab in `AnalyticsPage`. No schema change.
+- Tradeoffs: Statistically noisy for users with sparse data — guards (14 overlap days, 5 in each group, 15pp lift) filter out unreliable pairs. Won't render anything useful for new users.
 - Depends on: —
+- Decisions (from Phase 2 discussion):
+  - Same-day correlation only (lagged is a follow-up).
+  - Show both positive ("boosters") and negative ("trade-offs") in one view.
+  - Fixed 60-day window for MVP — selector is a fast follow.
+  - Tab name: "Insights".
+  - Conditional probability `P(B | A)` vs `P(B | ¬A)`, not Pearson/phi — easier to explain in the UI.
+  - Thresholds tunable via constants, not ADR'd.
 
 ### Time-of-day patterns
 
