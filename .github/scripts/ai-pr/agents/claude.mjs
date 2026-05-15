@@ -3,7 +3,6 @@
  * Implements review() and resolve() using the Anthropic API.
  */
 import Anthropic from '@anthropic-ai/sdk';
-import { minimatch } from 'minimatch';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -182,11 +181,3 @@ function parseResolveResponse(raw) {
   };
 }
 
-// ─── Path rule matching ───────────────────────────────────────────────────────
-
-/** Filter path rules to only those whose pattern matches at least one file in the diff. */
-export function matchPathRules(pathRules, changedFiles) {
-  return pathRules.filter((rule) =>
-    changedFiles.some((file) => minimatch(file, rule.pattern, { matchBase: false }))
-  );
-}

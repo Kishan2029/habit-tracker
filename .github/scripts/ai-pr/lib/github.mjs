@@ -92,14 +92,42 @@ function buildInlineCommentFallback(comments) {
 
 // ─── Review comments ─────────────────────────────────────────────────────────
 
-/** Get all inline review comments on a PR. */
-export async function getReviewComments(prNumber) {
-  return ghFetch(`/pulls/${prNumber}/comments`);
+/**
+ * Fetch all pages of a paginated GitHub API endpoint.
+ * Uses per_page=100 and follows Link: rel="next" headers.
+ */
+async function ghFetchAll(path) {
+  const results = [];
+  const separator = path.includes('?') ? '&' : '?';
+  let url = path.startsWith('https://') ? path : `${API_BASE}${path}`;
+  url += `${separator}per_page=100`;
+
+  while (url) {
+    const res = await fetch(url, { headers: headers() });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`GitHub API GET ${url} → ${res.status}: ${body}`);
+    }
+    const page = await res.json();
+    results.push(...page);
+
+    // Follow pagination via Link header
+    const link = res.headers.get('link') || '';
+    const next = link.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+
+  return results;
 }
 
-/** Get all reviews on a PR (summary + verdict, not inline). */
+/** Get all inline review comments on a PR (handles pagination). */
+export async function getReviewComments(prNumber) {
+  return ghFetchAll(`/pulls/${prNumber}/comments`);
+}
+
+/** Get all reviews on a PR (summary + verdict, not inline; handles pagination). */
 export async function getReviews(prNumber) {
-  return ghFetch(`/pulls/${prNumber}/reviews`);
+  return ghFetchAll(`/pulls/${prNumber}/reviews`);
 }
 
 /**
@@ -155,14 +183,33 @@ export async function removeLabel(prNumber, label) {
 
 // ─── CI status ───────────────────────────────────────────────────────────────
 
-/** Returns true if all required status checks on the PR head commit are passing. */
+/**
+ * Returns true if all CI checks on the PR head commit are passing.
+ * Covers both the GitHub Checks API (check-runs) and the older Commit
+ * Status API (statuses), since some tools post to one but not the other.
+ */
 export async function isCIGreen(prNumber) {
   const pr = await getPRInfo(prNumber);
   const sha = pr.head.sha;
-  const result = await ghFetch(`/commits/${sha}/check-runs`);
-  const runs = result.check_runs || [];
-  if (!runs.length) return false; // no checks = not green
-  return runs.every((r) => r.status === 'completed' && r.conclusion === 'success');
+
+  // Check Runs (GitHub Actions, modern integrations)
+  const checkResult = await ghFetch(`/commits/${sha}/check-runs?per_page=100`);
+  const runs = checkResult.check_runs || [];
+  const checksGreen =
+    runs.length > 0 &&
+    runs.every((r) => r.status === 'completed' && r.conclusion === 'success');
+
+  // Combined Commit Status (older integrations via Statuses API)
+  const statusResult = await ghFetch(`/commits/${sha}/status`);
+  const commitStatusGreen =
+    statusResult.state === 'success' || statusResult.state === 'pending' && statusResult.statuses.length === 0;
+
+  // If neither API has any data, treat as not green
+  if (!runs.length && !statusResult.statuses?.length) return false;
+
+  // Both must pass (skip status check if no statuses exist)
+  if (statusResult.statuses?.length > 0 && statusResult.state !== 'success') return false;
+  return checksGreen || runs.length === 0; // if only statuses exist, rely on that alone
 }
 
 // ─── Merge ───────────────────────────────────────────────────────────────────

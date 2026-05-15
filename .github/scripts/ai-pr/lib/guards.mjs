@@ -1,5 +1,5 @@
 /**
- * Guards — forbidden path checks and pre-commit validation.
+ * Guards — forbidden path checks, pre-commit validation, and path rule matching.
  */
 import { execSync } from 'child_process';
 import { minimatch } from 'minimatch';
@@ -53,6 +53,21 @@ export function runPreCommitChecks(checks) {
   }
 
   return results;
+}
+
+/**
+ * Filter path rules to only those whose pattern matches at least one changed file.
+ * Moved here from agents/claude.mjs so all adapters can use it without importing
+ * from a provider-specific module.
+ *
+ * @param {Array<{pattern: string, rulesText: string}>} pathRules
+ * @param {string[]} changedFiles
+ * @returns {Array<{pattern, rulesText}>}
+ */
+export function matchPathRules(pathRules, changedFiles) {
+  return pathRules.filter((rule) =>
+    changedFiles.some((file) => minimatch(file, rule.pattern, { matchBase: false }))
+  );
 }
 
 /** Format pre-commit results for display in a PR comment. */

@@ -12,10 +12,11 @@
  *   REPO                - owner/repo
  *   HEAD_REF            - PR branch name
  */
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
-import { resolve as resolvePath } from 'path';
+import { resolve as resolvePath, join } from 'path';
 import { fileURLToPath } from 'url';
+import { tmpdir } from 'os';
 import { loadConfig } from './lib/config.mjs';
 import {
   getPRInfo,
@@ -85,7 +86,10 @@ function gitSetup() {
   const pat = process.env.AI_PR_PAT;
   execSync(`git config user.email "github-actions[bot]@users.noreply.github.com"`);
   execSync(`git config user.name "github-actions[bot]"`);
-  execSync(`git remote set-url origin https://x-access-token:${pat}@github.com/${REPO}.git`);
+  // Use a credential helper to avoid embedding the PAT in the remote URL
+  // (embedding it makes it visible in `ps aux` on the runner).
+  execSync(`git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${pat}"; }; f'`);
+  execSync(`git remote set-url origin https://github.com/${REPO}.git`);
 }
 
 function gitCommitAndPush(changedFiles, message) {
@@ -93,7 +97,14 @@ function gitCommitAndPush(changedFiles, message) {
     const fullPath = resolvePath(REPO_ROOT, file);
     execSync(`git add "${fullPath}"`);
   }
-  execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`);
+  // Write commit message to a temp file to avoid shell injection via AI-generated text.
+  const msgFile = join(tmpdir(), `ai-pr-commit-${Date.now()}.txt`);
+  try {
+    writeFileSync(msgFile, message, 'utf8');
+    execSync(`git commit -F "${msgFile}"`);
+  } finally {
+    try { unlinkSync(msgFile); } catch { /* ignore */ }
+  }
   execSync(`git push origin ${HEAD_REF}`);
 }
 
