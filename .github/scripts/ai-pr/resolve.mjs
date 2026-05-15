@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve as resolvePath, join } from 'path';
 import { fileURLToPath } from 'url';
-import { tmpdir } from 'os';
+import { tmpdir, homedir } from 'os';
 import { loadConfig } from './lib/config.mjs';
 import {
   getPRInfo,
@@ -86,9 +86,14 @@ function gitSetup() {
   const pat = process.env.AI_PR_PAT;
   execSync(`git config user.email "github-actions[bot]@users.noreply.github.com"`);
   execSync(`git config user.name "github-actions[bot]"`);
-  // Use a credential helper to avoid embedding the PAT in the remote URL
-  // (embedding it makes it visible in `ps aux` on the runner).
-  execSync(`git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${pat}"; }; f'`);
+  // Write credentials to ~/.git-credentials so the PAT never touches the shell
+  // (avoids both ps-aux exposure and shell-injection via a malformed PAT value).
+  execSync(`git config credential.helper store`);
+  writeFileSync(
+    join(homedir(), '.git-credentials'),
+    `https://x-access-token:${pat}@github.com\n`,
+    { flag: 'a', mode: 0o600 },
+  );
   execSync(`git remote set-url origin https://github.com/${REPO}.git`);
 }
 

@@ -201,15 +201,18 @@ export async function isCIGreen(prNumber) {
 
   // Combined Commit Status (older integrations via Statuses API)
   const statusResult = await ghFetch(`/commits/${sha}/status`);
-  const commitStatusGreen =
-    statusResult.state === 'success' || statusResult.state === 'pending' && statusResult.statuses.length === 0;
+  const hasStatuses = (statusResult.statuses?.length ?? 0) > 0;
+  // 'success' = all statuses passed; 'pending' with no statuses = nothing reported yet (treat as no data).
+  const commitStatusGreen = statusResult.state === 'success';
 
   // If neither API has any data, treat as not green
-  if (!runs.length && !statusResult.statuses?.length) return false;
+  if (!runs.length && !hasStatuses) return false;
 
-  // Both must pass (skip status check if no statuses exist)
-  if (statusResult.statuses?.length > 0 && statusResult.state !== 'success') return false;
-  return checksGreen || runs.length === 0; // if only statuses exist, rely on that alone
+  // If statuses exist they must all pass
+  if (hasStatuses && !commitStatusGreen) return false;
+
+  // If check-runs exist they must all pass; if only statuses exist, rely on that alone
+  return checksGreen || runs.length === 0;
 }
 
 // ─── Merge ───────────────────────────────────────────────────────────────────
