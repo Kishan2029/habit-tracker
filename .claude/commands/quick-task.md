@@ -92,6 +92,7 @@ Answer each question. Update if triggered — in this response, not "later":
 | Changed a Mongoose schema or index? | `docs/DATA_MODELS.md` |
 | Added or changed an env var? | `docs/ARCHITECTURE.md` §11 AND `server/src/config/env.js` |
 | Changed an endpoint's request/response shape? | The `@swagger` JSDoc above the route |
+| Removed a dependency or added a new one? | Note it in the PR body — reviewers should know |
 
 If none apply, say so explicitly — don't silently skip the check.
 
