@@ -45,6 +45,13 @@ Booby traps in this codebase that have bitten us before. Skim before refactoring
 - Services are singleton instances: `export default new MyService()`. If a method needs different config per call, take that config as an argument — don't mutate instance state.
 - `catchAsync` forwards rejections to `next()`. Don't wrap a `catchAsync` controller body in `try/catch` — that defeats the purpose.
 
+## Mobile gestures
+
+- **Never enable `trackMouse` on `useSwipeable`.** A mouse-drag during text selection on desktop would fire a swipe and (e.g.) jump the date or undo a habit. Gate every gesture on `useIsTouchDevice()`.
+- **Don't nest horizontal-swipe handlers.** The Today view puts swipe-to-toggle on each habit card; date nav is its own row. If you add another horizontal swipe in the same scrolling area, expect both to fire and drop one.
+- **Pull-to-refresh uses window `scrollY`.** It only fires when the page is scrolled to the top — adding a separate scroll container around `HabitList` would break it; route the scroll back to the window or move the listener.
+- `react-swipeable` doesn't expose `stopPropagation`. If two swipe regions overlap, use disjoint DOM regions, not z-index hacks.
+
 ## Shared habits
 
 - A shared habit's permission check happens in the **service layer**, not in middleware. The role matrix is in `TECHNICAL.md` and enforced in `sharedHabitService.js`. Don't add a shortcut middleware that fakes this — roles depend on `(userId, habitId)` lookups.
