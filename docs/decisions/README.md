@@ -32,6 +32,7 @@ Good and bad — what this locks us into, what it costs, what it enables.
 | 0003 | No TypeScript — plain JavaScript + JSX | Accepted |
 | 0004 | Multi-provider email layer (SMTP / Resend / Brevo) | Accepted |
 | 0005 | Per-instance `node-cache` instead of Redis | Accepted |
+| 0006 | Mobile swipe gestures via `react-swipeable`, touch-only, additive | Accepted |
 
 ## How to add one
 
