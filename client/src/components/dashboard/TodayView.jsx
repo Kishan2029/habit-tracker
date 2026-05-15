@@ -8,6 +8,7 @@ import BooleanToggle from './BooleanToggle';
 import CountStepper from './CountStepper';
 import StreakBadge from './StreakBadge';
 import HabitNotes from './HabitNotes';
+import SwipeToToggleRow from './SwipeToToggleRow';
 import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import LoadingSpinner from '../ui/LoadingSpinner';
@@ -258,7 +259,14 @@ export default function TodayView() {
               <div className="overflow-hidden">
               <div className="space-y-3">
                 {group.entries.map(({ habit, log, isCompleted, isShared, sharedBy, myRole }) => (
-                  <Card key={habit._id} className="p-4 first:mt-0.5">
+                  <SwipeToToggleRow
+                    key={habit._id}
+                    isCompleted={isCompleted}
+                    disabled={isShared && myRole === 'viewer'}
+                    onComplete={() => handleLog(habit._id, habit.type === 'boolean' ? true : habit.target)}
+                    onUndo={() => handleLog(habit._id, habit.type === 'boolean' ? false : 0)}
+                  >
+                  <Card className="p-4 first:mt-0.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div
@@ -365,6 +373,7 @@ export default function TodayView() {
                       </div>
                     )}
                   </Card>
+                  </SwipeToToggleRow>
                 ))}
               </div>
               </div>
