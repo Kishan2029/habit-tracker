@@ -15,6 +15,7 @@ This `docs/claude-commands/` folder is kept as a reference index only (the `READ
 | `/swagger-sync` | Audit `server/src/routes/*.js` for missing or stale `@swagger` JSDoc blocks. |
 | `/docs-audit` | Audit the current branch for context-doc drift — flags missing `DATA_MODELS.md`, ADR, env, and GOTCHAS updates that the code changes warrant. Run before opening a PR. |
 | `/fix-bug <description>` | Drive a bug fix end-to-end: triage → failing test → root cause → minimum fix → verify → GOTCHAS update → PR. |
+| `/quick-task <description>` | Execute a small, scoped change (UI tweak, minor backend change, chore) without the full feature scaffold. |
 
 ## When to edit them
 

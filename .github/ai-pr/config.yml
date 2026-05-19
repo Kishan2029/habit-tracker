@@ -1,0 +1,48 @@
+# AI PR Pipeline — central config
+# Controls all three stages: reviewer, resolver, merger.
+
+reviewer:
+  agent: claude
+  model: claude-sonnet-4-6
+  guidelines: .github/ai-pr/review-guidelines.md
+  path_rules:
+    - pattern: "server/**"
+      rules: .github/ai-pr/path-rules/server.md
+    - pattern: "client/**"
+      rules: .github/ai-pr/path-rules/client.md
+  # Only block the PR (REQUEST_CHANGES) on findings at or above this severity.
+  # Levels: minor | major | critical
+  severity_threshold: major
+
+resolver:
+  agent: claude
+  model: claude-sonnet-4-6
+  guidelines: .github/ai-pr/resolve-guidelines.md
+  # Max resolver iterations before handing off to a human.
+  max_iterations: 3
+  iteration_label_prefix: "ai-attempts-"
+  overflow_label: "needs-human"
+  # The resolver must never write to these paths.
+  forbidden_paths:
+    - "**/.env*"
+    - "**/node_modules/**"
+    - ".github/workflows/**"
+    - ".github/scripts/ai-pr/**"
+    - ".github/ai-pr/**"
+  # Checks that must pass before the resolver commits.
+  # On failure the output is fed back to the agent for a retry (max 2 retries).
+  pre_commit:
+    - id: server-tests
+      run: "npm install --prefix server && cd server && npm test"
+    - id: client-lint
+      run: "npm install --prefix client && cd client && npm run lint"
+    - id: client-build
+      run: "cd client && npm run build"
+
+merger:
+  # merge | squash | rebase
+  strategy: squash
+  gates:
+    ci_green: true       # all status checks must be green
+    ai_approved: true    # the reviewer bot must have approved
+    human_approved: false # set to true to require at least one human approval too

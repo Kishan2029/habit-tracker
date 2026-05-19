@@ -1,0 +1,42 @@
+name: AI PR Resolve
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    # Only run when the AI bot requests changes (not human reviewers, not approvals)
+    if: |
+      github.event.review.state == 'changes_requested' &&
+      github.event.review.user.login == 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use PAT so the push re-triggers workflows (GITHUB_TOKEN push does not)
+          token: ${{ secrets.AI_PR_PAT }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install script dependencies
+        run: npm install --prefix .github/scripts/ai-pr
+
+      - name: Run AI Resolve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_PR_PAT: ${{ secrets.AI_PR_PAT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: node .github/scripts/ai-pr/resolve.mjs

@@ -1,0 +1,11 @@
+{
+  "name": "ai-pr-scripts",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
+    "js-yaml": "^4.1.0",
+    "minimatch": "^9.0.4"
+  }
+}
