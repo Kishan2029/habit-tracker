@@ -44,6 +44,7 @@ Booby traps in this codebase that have bitten us before. Skim before refactoring
 - **Services don't touch `req` / `res`.** They take primitive args and return data or throw `AppError`.
 - Services are singleton instances: `export default new MyService()`. If a method needs different config per call, take that config as an argument — don't mutate instance state.
 - `catchAsync` forwards rejections to `next()`. Don't wrap a `catchAsync` controller body in `try/catch` — that defeats the purpose.
+- **Never use `notes: notes || ''` in a `findOneAndUpdate` call** — when `notes` is absent from the request, `undefined || ''` resolves to `''` and Mongoose's implicit `$set` overwrites any existing note with an empty string. Instead, conditionally include `notes` in `$set` only when it is `!== undefined`, and use `$setOnInsert: { notes: '' }` to set the schema default only on new-document creation.
 
 ## Mobile gestures
 

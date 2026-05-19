@@ -141,12 +141,13 @@ export default function TodayView() {
 
   const handleNoteSave = async (habitId, notes) => {
     const entry = data?.habits.find((h) => h.habit._id === habitId);
-    if (!entry || !entry.log) {
-      toast.error('Log the habit first before adding a note');
-      return;
-    }
+    if (!entry) return;
+    // Use existing log value, or default (0 for count, false for boolean) when no log yet
+    const value = entry.log != null
+      ? entry.log.value
+      : entry.habit.type === 'boolean' ? false : 0;
     try {
-      await createLog({ habitId, date, value: entry.log.value, notes });
+      await createLog({ habitId, date, value, notes });
       silentRefresh();
     } catch {
       toast.error('Failed to save note');
