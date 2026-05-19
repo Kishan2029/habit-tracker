@@ -7,7 +7,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 
 function repoPath(...parts) {
   return resolve(REPO_ROOT, ...parts);
