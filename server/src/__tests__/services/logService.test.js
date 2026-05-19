@@ -253,6 +253,82 @@ describe('LogService', () => {
 
       expect(result.isNew).toBe(false);
     });
+
+    it('bug: notes preserved when count updated without notes in request', async () => {
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+
+      const mockHabit = {
+        _id: 'h1',
+        userId: { toString: () => 'user1' },
+        type: 'count',
+        frequency: [0, 1, 2, 3, 4, 5, 6],
+        target: 5,
+        createdAt: new Date('2024-01-01'),
+        currentStreak: 0,
+        longestStreak: 0,
+        save: jest.fn().mockResolvedValue(true),
+      };
+      Habit.findById.mockResolvedValue(mockHabit);
+      HabitLog.findOneAndUpdate.mockResolvedValue({
+        value: { habitId: 'h1', value: 3, notes: 'my note' },
+        lastErrorObject: { updatedExisting: true },
+      });
+      HabitLog.find.mockReturnValue({
+        sort: jest.fn().mockResolvedValue([]),
+      });
+
+      // Updating count without providing notes — notes must NOT be overwritten with ''
+      await logService.createOrUpdate('user1', {
+        habitId: 'h1',
+        date: dateStr,
+        value: 3,
+        // notes intentionally absent
+      });
+
+      const updateCall = HabitLog.findOneAndUpdate.mock.calls[0][1];
+      // The update doc should NOT set notes to '' when notes is not provided
+      const setDoc = updateCall.$set ?? updateCall;
+      expect(setDoc.notes).toBeUndefined();
+    });
+
+    it('bug: notes saved for count habit with value 0 and no prior log', async () => {
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+
+      const mockHabit = {
+        _id: 'h1',
+        userId: { toString: () => 'user1' },
+        type: 'count',
+        frequency: [0, 1, 2, 3, 4, 5, 6],
+        target: 5,
+        createdAt: new Date('2024-01-01'),
+        currentStreak: 0,
+        longestStreak: 0,
+        save: jest.fn().mockResolvedValue(true),
+      };
+      Habit.findById.mockResolvedValue(mockHabit);
+      HabitLog.findOneAndUpdate.mockResolvedValue({
+        value: { habitId: 'h1', value: 0, notes: 'skipped today' },
+        lastErrorObject: { updatedExisting: false },
+      });
+      HabitLog.find.mockReturnValue({
+        sort: jest.fn().mockResolvedValue([]),
+      });
+
+      // Saving notes with count=0 (no prior increment) must succeed
+      const result = await logService.createOrUpdate('user1', {
+        habitId: 'h1',
+        date: dateStr,
+        value: 0,
+        notes: 'skipped today',
+      });
+
+      const updateCall = HabitLog.findOneAndUpdate.mock.calls[0][1];
+      const setDoc = updateCall.$set ?? updateCall;
+      expect(setDoc.notes).toBe('skipped today');
+      expect(result.log).toBeDefined();
+    });
   });
 
   describe('getDailyLogs', () => {

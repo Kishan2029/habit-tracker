@@ -144,9 +144,18 @@ class LogService {
       throw new AppError('Cannot log before the habit was created', 400);
     }
 
+    // Only include notes in $set when the caller provided them — omitting notes
+    // from the request must not overwrite existing notes with ''.
+    // $setOnInsert ensures new documents still get the schema default ('').
+    const setFields = { habitId, userId, date: logDate, value };
+    if (notes !== undefined) setFields.notes = notes;
+    const updateDoc = notes !== undefined
+      ? { $set: setFields }
+      : { $set: setFields, $setOnInsert: { notes: '' } };
+
     const result = await HabitLog.findOneAndUpdate(
       { habitId, userId, date: logDate },
-      { habitId, userId, date: logDate, value, notes: notes || '' },
+      updateDoc,
       { upsert: true, new: true, runValidators: true, includeResultMetadata: true }
     );
 
